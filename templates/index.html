@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="zh">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PlotPin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">Plot<span class="pin">Pin</span></div>
+    <div class="tagline">测量数据 · 永久图表链接</div>
+  </header>
+
+  <section class="hero">
+    <h1>上传 CSV，钉成一条永不失效的图表链接。</h1>
+    <p>第一列为横坐标，其余列各画一条曲线，表头即图例。每张图分配一个永久 ID，交互页与静态图片同址可嵌入笔记。</p>
+
+    <div class="ruler" aria-label="工程计数法 SI 词头标尺">
+      <div class="ruler-line">
+        <div class="tick"><span class="pow">-15</span><span class="pfx">f</span></div>
+        <div class="tick"><span class="pow">-12</span><span class="pfx">p</span></div>
+        <div class="tick"><span class="pow">-9</span><span class="pfx">n</span></div>
+        <div class="tick"><span class="pow">-6</span><span class="pfx">u</span></div>
+        <div class="tick"><span class="pow">-3</span><span class="pfx">m</span></div>
+        <div class="tick base"><span class="pow">0</span><span class="pfx">1</span></div>
+        <div class="tick"><span class="pow">+3</span><span class="pfx">k</span></div>
+        <div class="tick"><span class="pow">+6</span><span class="pfx">M</span></div>
+        <div class="tick"><span class="pow">+9</span><span class="pfx">G</span></div>
+        <div class="tick"><span class="pow">+12</span><span class="pfx">T</span></div>
+      </div>
+      <div class="ruler-cap"><span>工程计数法</span><span>大小写敏感</span></div>
+    </div>
+
+    {% if error %}<p class="error">{{ error }}</p>{% endif %}
+
+    <form id="upload-form" action="/charts" method="post" enctype="multipart/form-data">
+      <div class="intake">
+        <div class="ico">▤ 数据接入</div>
+        <div class="big">拖入 CSV 文件，或点击选择</div>
+        <div class="hint">第一列 = X · 其余列 = Y · 含表头行</div>
+        <label class="pick">
+          <input type="file" name="file" id="file" accept=".csv" required style="display:none">
+          选择文件
+        </label>
+      </div>
+
+      <div id="config" hidden>
+        <div class="modal-inner">
+          <div class="m-head">
+            <span class="t">配置图表</span>
+            <span class="file" id="file-label">▤ 已选文件</span>
+          </div>
+          <div class="m-body">
+            <div class="field">
+              <label>图表标题</label>
+              <input type="text" name="title" required placeholder="放大器频响 — 增益 / 相位">
+            </div>
+            <div class="field">
+              <label>X 轴标题</label>
+              <input type="text" name="x_title" required placeholder="频率 (Hz)">
+            </div>
+            <div class="field">
+              <label>Y 轴标题</label>
+              <input type="text" name="y_title" required placeholder="增益 (dB)">
+            </div>
+            <div class="axes">
+              <div class="axiscard">
+                <div class="ax">X 轴</div>
+                <div class="opt">
+                  <input type="checkbox" name="x_eng" id="x_eng" checked>
+                  <label class="lab" for="x_eng">工程计数法</label>
+                  <span class="ex">47000→<b>47k</b></span>
+                </div>
+                <div class="opt">
+                  <input type="checkbox" name="x_log" id="x_log">
+                  <label class="lab" for="x_log">对数坐标</label>
+                </div>
+              </div>
+              <div class="axiscard">
+                <div class="ax">Y 轴</div>
+                <div class="opt">
+                  <input type="checkbox" name="y_eng" id="y_eng" checked>
+                  <label class="lab" for="y_eng">工程计数法</label>
+                  <span class="ex">0.1→<b>100m</b></span>
+                </div>
+                <div class="opt">
+                  <input type="checkbox" name="y_log" id="y_log">
+                  <label class="lab" for="y_log">对数坐标</label>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="m-foot">
+            <button type="submit" class="btn primary">生成图表</button>
+          </div>
+        </div>
+      </div>
+    </form>
+  </section>
+
+  <div class="log-head">
+    <h2>测量记录</h2>
+    <span class="count">{{ items|length }} 条</span>
+    <span class="rule"></span>
+  </div>
+  <ul class="log">
+    {% for it in items %}
+      <li class="row">
+        {% if it.thumb %}
+          <img class="spark" src="{{ it.thumb }}" alt="" width="64" height="34">
+        {% else %}
+          <svg class="spark" viewBox="0 0 64 34" preserveAspectRatio="none">
+            <rect width="64" height="34" fill="#f3f3f3"/>
+          </svg>
+        {% endif %}
+        <div class="r-main">
+          <div class="r-title"><a href="/chart/{{ it.chart.id }}">{{ it.chart.title }}</a></div>
+          <div class="r-meta"><span class="id">{{ it.chart.id }}</span> · {{ it.chart.created_at }}</div>
+        </div>
+      </li>
+    {% else %}
+      <li class="row empty">暂无图表</li>
+    {% endfor %}
+  </ul>
+
+  <footer>PlotPin · 局域网自部署 · 链接永久不变</footer>
+</div>
+<script src="/static/upload.js"></script>
+</body>
+</html>
