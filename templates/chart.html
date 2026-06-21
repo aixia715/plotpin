@@ -16,7 +16,7 @@
 
   <div class="titlewrap">
     <h1>{{ chart.title }}</h1>
-    <div class="sub">ID <span class="id">{{ chart.id }}</span> · 创建于 {{ chart.created_at }}</div>
+    <div class="sub">ID <span class="id">{{ chart.id }}</span> · 创建于 <time class="local-time" datetime="{{ chart.created_at }}">{{ chart.created_at }}</time></div>
   </div>
 
   <div class="panel">
@@ -89,5 +89,6 @@
     });
   });
 </script>
+<script src="/static/localtime.js"></script>
 </body>
 </html>
