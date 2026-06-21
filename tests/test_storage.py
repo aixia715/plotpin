@@ -16,6 +16,9 @@ def test_save_and_get(tmp_path):
     fetched = store.get_chart("abc123xyz0")
     assert fetched is not None
     assert fetched.title == "标题"
+    assert fetched.x_eng is True
+    assert fetched.y_eng is False
+    assert fetched.x_log is False
     assert fetched.y_log is True
     assert store.read_csv("abc123xyz0") == b"x,y\n1k,3.3\n"
 

@@ -18,7 +18,7 @@ class Chart:
 
 
 class Storage:
-    def __init__(self, data_dir):
+    def __init__(self, data_dir: str | Path):
         self.data_dir = Path(data_dir)
         self.csv_dir = self.data_dir / "csv"
         self.cache_dir = self.data_dir / "cache"
