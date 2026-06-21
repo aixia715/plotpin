@@ -1,0 +1,12 @@
+services:
+  plotpin:
+    build: .
+    container_name: plotpin
+    ports:
+      - "8000:8000"
+    volumes:
+      # 左侧改成 NAS 上的实际共享目录,确保持久化
+      - ./data:/data
+    environment:
+      - PLOTPIN_DATA_DIR=/data
+    restart: unless-stopped
