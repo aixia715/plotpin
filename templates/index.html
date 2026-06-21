@@ -117,7 +117,7 @@
         {% endif %}
         <div class="r-main">
           <div class="r-title"><a href="/chart/{{ it.chart.id }}">{{ it.chart.title }}</a></div>
-          <div class="r-meta"><span class="id">{{ it.chart.id }}</span> · {{ it.chart.created_at }}</div>
+          <div class="r-meta"><span class="id">{{ it.chart.id }}</span> · <time class="local-time" datetime="{{ it.chart.created_at }}">{{ it.chart.created_at }}</time></div>
         </div>
       </li>
     {% else %}
@@ -128,5 +128,6 @@
   <footer>PlotPin · 局域网自部署 · 链接永久不变</footer>
 </div>
 <script src="/static/upload.js"></script>
+<script src="/static/localtime.js"></script>
 </body>
 </html>
