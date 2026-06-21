@@ -5,10 +5,24 @@ import matplotlib
 matplotlib.use("Agg")  # 无头环境,必须在 pyplot 之前设置
 
 import matplotlib.pyplot as plt  # noqa: E402
+from matplotlib import font_manager  # noqa: E402
 from matplotlib.ticker import FuncFormatter  # noqa: E402
 
 from app.eng_notation import format_eng, format_plain, log_ticks, nice_ticks  # noqa: E402
 from app.parsing import ParsedCSV  # noqa: E402
+
+# 若系统装有中文字体(如 Docker 镜像里的 fonts-noto-cjk),则启用,
+# 让静态 PNG/SVG 的中文标题/轴标签正常显示。本地未安装时保持默认,
+# 不改 rcParams,避免 findfont 警告污染测试输出。
+_CJK_CANDIDATES = (
+    "Noto Sans CJK SC", "Noto Sans CJK JP", "Noto Sans CJK TC",
+    "Noto Sans CJK KR", "WenQuanYi Zen Hei", "Source Han Sans SC",
+)
+_available_fonts = {f.name for f in font_manager.fontManager.ttflist}
+_cjk_font = next((name for name in _CJK_CANDIDATES if name in _available_fonts), None)
+if _cjk_font:
+    plt.rcParams["font.sans-serif"] = [_cjk_font, "DejaVu Sans"]
+    plt.rcParams["axes.unicode_minus"] = False  # 用 ASCII 减号,避免负号缺字形
 
 
 def _formatter(use_eng: bool):
