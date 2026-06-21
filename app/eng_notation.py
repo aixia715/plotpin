@@ -1,5 +1,6 @@
 import math
 import re
+from decimal import Decimal
 
 PREFIXES: dict[str, float] = {
     "f": 1e-15, "p": 1e-12, "n": 1e-9, "u": 1e-6, "m": 1e-3,
@@ -44,7 +45,12 @@ def _trim(value: float) -> str:
 def format_plain(value: float) -> str:
     if value == 0:
         return "0"
-    return _trim(value)
+    text = _trim(value)
+    # Never emit scientific notation in axis labels: expand any exponent
+    # (e.g. "2.4e+06") into plain decimal form while keeping ~6 sig figs.
+    if "e" in text or "E" in text:
+        text = format(Decimal(text), "f")
+    return text
 
 
 def format_eng(value: float) -> str:

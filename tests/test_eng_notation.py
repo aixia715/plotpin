@@ -62,9 +62,14 @@ def test_format_eng(value, expected):
     (0.1, "0.1"),
     (3.3, "3.3"),
     (0.0, "0"),
+    (2.4e6, "2400000"),       # no scientific notation
+    (1234567.0, "1234570"),   # ~6 sig figs, plain decimal
+    (1e-12, "0.000000000001"),
 ])
 def test_format_plain(value, expected):
-    assert format_plain(value) == expected
+    result = format_plain(value)
+    assert result == expected
+    assert "e" not in result and "E" not in result
 
 
 def test_nice_ticks_basic():
