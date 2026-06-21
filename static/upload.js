@@ -11,13 +11,13 @@ if (fileInput && config) {
     }
   });
 
-  // 点击 intake 区域触发文件选择
+  // 点击 intake 空白区域触发文件选择;
+  // 点在 .pick(label)上时由 label 原生行为打开,避免对话框弹两次
   const intake = document.querySelector(".intake");
   if (intake) {
     intake.addEventListener("click", (e) => {
-      if (e.target !== fileInput) {
-        fileInput.click();
-      }
+      if (e.target.closest(".pick")) return;
+      fileInput.click();
     });
   }
 }
