@@ -17,7 +17,7 @@
     <h1>上传 CSV，钉成一条永不失效的图表链接。</h1>
     <p>第一列为横坐标，其余列各画一条曲线，表头即图例。每张图分配一个永久 ID，交互页与静态图片同址可嵌入笔记。</p>
 
-    <div class="ruler" aria-label="工程计数法 SI 词头标尺">
+    <div class="ruler" aria-label="坐标轴显示用工程计数法 SI 词头标尺">
       <div class="ruler-line">
         <div class="tick"><span class="pow">-15</span><span class="pfx">f</span></div>
         <div class="tick"><span class="pow">-12</span><span class="pfx">p</span></div>
@@ -30,7 +30,7 @@
         <div class="tick"><span class="pow">+9</span><span class="pfx">G</span></div>
         <div class="tick"><span class="pow">+12</span><span class="pfx">T</span></div>
       </div>
-      <div class="ruler-cap"><span>工程计数法</span><span>大小写敏感</span></div>
+      <div class="ruler-cap"><span>坐标轴显示</span><span>工程计数法</span></div>
     </div>
 
     {% if error %}<p class="error">{{ error }}</p>{% endif %}
@@ -39,7 +39,7 @@
       <div class="intake">
         <div class="ico">▤ 数据接入</div>
         <div class="big">拖入 CSV 文件，或点击选择</div>
-        <div class="hint">第一列 = X · 其余列 = Y · 含表头行</div>
+        <div class="hint">第一列 = X · 其余列 = Y · 含表头行 · 数值支持小数与科学计数法（如 1.5e6）</div>
         <label class="pick">
           <input type="file" name="file" id="file" accept=".csv" required style="display:none">
           选择文件

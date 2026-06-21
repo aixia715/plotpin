@@ -3,7 +3,7 @@ from dataclasses import dataclass
 
 import pandas as pd
 
-from app.eng_notation import EngParseError, parse_eng
+from app.eng_notation import NumberParseError, parse_number
 
 
 class CSVParseError(Exception):
@@ -44,8 +44,8 @@ def read_csv_bytes(raw: bytes) -> ParsedCSV:
     def parse_cell(value, row_idx: int, col_idx: int) -> float:
         cell = str(value)
         try:
-            return parse_eng(cell)
-        except EngParseError as err:
+            return parse_number(cell)
+        except NumberParseError as err:
             raise CSVParseError(
                 f"第 {row_idx + 2} 行 第 {col_idx + 1} 列 `{cell}` 无法解析:{err}"
             )

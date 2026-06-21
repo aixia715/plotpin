@@ -7,7 +7,7 @@ def _csv(text: str, encoding: str = "utf-8") -> bytes:
 
 
 def test_read_valid_multi_y():
-    raw = _csv("freq,gain,phase\n1k,3.3,100m\n2k,6.6,200m\n")
+    raw = _csv("freq,gain,phase\n1000,3.3,0.1\n2000,6.6,0.2\n")
     parsed = read_csv_bytes(raw)
     assert isinstance(parsed, ParsedCSV)
     assert parsed.x_label == "freq"
@@ -30,7 +30,7 @@ def test_reject_single_column():
 
 
 def test_reject_bad_cell_reports_location():
-    raw = _csv("x,y\n1k,3.3\n2k,47x\n")
+    raw = _csv("x,y\n1000,3.3\n2000,47x\n")
     with pytest.raises(CSVParseError) as exc:
         read_csv_bytes(raw)
     msg = str(exc.value)
@@ -40,7 +40,7 @@ def test_reject_bad_cell_reports_location():
 
 
 def test_reject_empty_cell():
-    raw = _csv("x,y\n1k,3.3\n2k,\n")
+    raw = _csv("x,y\n1000,3.3\n2000,\n")
     with pytest.raises(CSVParseError):
         read_csv_bytes(raw)
 

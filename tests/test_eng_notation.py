@@ -1,45 +1,58 @@
 import pytest
 from app.eng_notation import (
-    parse_eng,
+    parse_number,
     format_eng,
     format_plain,
     nice_ticks,
     log_ticks,
-    EngParseError,
+    NumberParseError,
 )
 
 
 @pytest.mark.parametrize("text,expected", [
-    ("47k", 47000.0),
-    ("100m", 0.1),
+    # 普通十进制,任意量级
     ("3.3", 3.3),
-    ("0", 0.0),
-    ("1k", 1000.0),
     ("999.9", 999.9),
     ("1", 1.0),
-    ("-47k", -47000.0),
-    ("470u", 470e-6),
-    ("2.2M", 2.2e6),
-    (" 47k ", 47000.0),
+    ("4700", 4700.0),
+    ("1000", 1000.0),
+    ("1500000", 1500000.0),
+    ("0.5", 0.5),
+    ("-1500000", -1500000.0),
+    ("0.000001", 0.000001),
+    ("-118.7", -118.7),
     ("+3.3", 3.3),
+    (" 47 ", 47.0),
+    # 科学计数法
+    ("1.5e6", 1500000.0),
+    ("2.4E-3", 0.0024),
+    ("1e-12", 1e-12),
+    ("-1.4e2", -140.0),
+    # 0 的各种写法都通过
+    ("0", 0.0),
+    ("0.0", 0.0),
+    ("0e0", 0.0),
+    ("-0", 0.0),
 ])
-def test_parse_eng_valid(text, expected):
-    assert parse_eng(text) == pytest.approx(expected)
+def test_parse_number_valid(text, expected):
+    assert parse_number(text) == pytest.approx(expected)
 
 
 @pytest.mark.parametrize("text", [
-    "47x",      # 非法词头
-    "4700",     # 无词头但 >=1000
-    "1000",     # 边界,>=1000 非法
-    "0.5",      # <1 无词头
+    "47k",      # 不再支持 SI 词头输入
+    "1.5M",     # 不再支持 SI 词头输入
+    "470u",     # 不再支持 SI 词头输入
+    "47x",      # 乱字符
     "",         # 空值
     "   ",      # 仅空白
-    "47 k",     # 中间空格
+    "1.5 e6",   # 中间空格
     "abc",      # 非数字
+    "inf",      # 非有限
+    "nan",      # 非有限
 ])
-def test_parse_eng_invalid(text):
-    with pytest.raises(EngParseError):
-        parse_eng(text)
+def test_parse_number_invalid(text):
+    with pytest.raises(NumberParseError):
+        parse_number(text)
 
 
 @pytest.mark.parametrize("value,expected", [

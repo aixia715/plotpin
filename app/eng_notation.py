@@ -1,40 +1,32 @@
 import math
-import re
 from decimal import Decimal
 
-PREFIXES: dict[str, float] = {
-    "f": 1e-15, "p": 1e-12, "n": 1e-9, "u": 1e-6, "m": 1e-3,
-    "k": 1e3, "M": 1e6, "G": 1e9, "T": 1e12,
-}
+# 仅用于坐标轴标签的工程计数法显示(format_eng),不参与输入解析。
 _EXP_TO_PREFIX = {
     -15: "f", -12: "p", -9: "n", -6: "u", -3: "m", 0: "",
     3: "k", 6: "M", 9: "G", 12: "T",
 }
-_NUM_RE = re.compile(r"^([+-]?)(\d+(?:\.\d+)?)([fpnumkMGT]?)$")
 
 
-class EngParseError(ValueError):
+class NumberParseError(ValueError):
     pass
 
 
-def parse_eng(s: str) -> float:
+def parse_number(s: str) -> float:
+    """解析单元格数值。仅支持普通十进制与科学计数法(如 1.5e6),
+    不支持 SI 词头(工程计数法只用于显示)。"""
     if s is None:
-        raise EngParseError("空值")
+        raise NumberParseError("空值")
     text = s.strip()
     if text == "":
-        raise EngParseError("空值")
-    match = _NUM_RE.match(text)
-    if not match:
-        raise EngParseError(f"`{s}` 无法解析")
-    sign, mantissa_str, prefix = match.groups()
-    mantissa = float(mantissa_str)
-    if mantissa == 0:
-        return 0.0
-    if not (1.0 <= mantissa < 1000.0):
-        raise EngParseError(f"`{s}` 的数值部分必须落在 [1, 1000) 或为 0")
-    factor = PREFIXES[prefix] if prefix else 1.0
-    value = mantissa * factor
-    return -value if sign == "-" else value
+        raise NumberParseError("空值")
+    try:
+        value = float(text)
+    except (ValueError, OverflowError):
+        raise NumberParseError(f"`{s}` 无法解析为数值(仅支持十进制与科学计数法)")
+    if not math.isfinite(value):
+        raise NumberParseError(f"`{s}` 不是有限数值")
+    return value
 
 
 def _trim(value: float) -> str:
