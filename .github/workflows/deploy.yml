@@ -70,6 +70,13 @@ jobs:
             HOST_PORT=$3
             DATA_VOLUME=$4
 
+            # docker 不会展开来自变量的 ~,这里手动展开成绝对路径并确保目录存在
+            case "$DATA_VOLUME" in
+              "~")   DATA_VOLUME="$HOME" ;;
+              "~/"*) DATA_VOLUME="$HOME/${DATA_VOLUME#~/}" ;;
+            esac
+            mkdir -p "$DATA_VOLUME"
+
             OLD_IMAGE=$(docker inspect --format='{{.Config.Image}}' "${CONTAINER_NAME}" 2>/dev/null || true)
 
             docker stop "${CONTAINER_NAME}" 2>/dev/null || true
