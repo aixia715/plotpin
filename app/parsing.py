@@ -42,7 +42,7 @@ def read_csv_bytes(raw: bytes) -> ParsedCSV:
         raise CSVParseError("表头存在重复列名")
 
     def parse_cell(value, row_idx: int, col_idx: int) -> float:
-        cell = "" if value is None else str(value)
+        cell = str(value)
         try:
             return parse_eng(cell)
         except EngParseError as err:

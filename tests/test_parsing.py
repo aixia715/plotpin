@@ -35,6 +35,8 @@ def test_reject_bad_cell_reports_location():
         read_csv_bytes(raw)
     msg = str(exc.value)
     assert "47x" in msg
+    assert "第 3 行" in msg
+    assert "第 2 列" in msg
 
 
 def test_reject_empty_cell():
@@ -46,6 +48,11 @@ def test_reject_empty_cell():
 def test_reject_not_csv():
     with pytest.raises(CSVParseError):
         read_csv_bytes(b"\x00\x01\x02 not text at all")
+
+
+def test_reject_undecodable_bytes():
+    with pytest.raises(CSVParseError):
+        read_csv_bytes(b"\x80\x81\x82\xff\xfe")
 
 
 def _parsed():
