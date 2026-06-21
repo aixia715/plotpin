@@ -55,8 +55,16 @@ def format_eng(value: float) -> str:
     exp3 = int(math.floor(math.log10(magnitude) / 3.0)) * 3
     exp3 = max(-15, min(12, exp3))
     mantissa = magnitude / (10.0 ** exp3)
-    prefix = _EXP_TO_PREFIX[exp3]
     text = _trim(mantissa)
+
+    # If mantissa rounds to >= 1000, carry into next SI prefix
+    mantissa_val = float(text)
+    if mantissa_val >= 1000.0 and exp3 < 12:
+        exp3 += 3
+        mantissa = magnitude / (10.0 ** exp3)
+        text = _trim(mantissa)
+
+    prefix = _EXP_TO_PREFIX[exp3]
     return ("-" if negative else "") + text + prefix
 
 

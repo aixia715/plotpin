@@ -21,6 +21,7 @@ from app.eng_notation import (
     ("470u", 470e-6),
     ("2.2M", 2.2e6),
     (" 47k ", 47000.0),
+    ("+3.3", 3.3),
 ])
 def test_parse_eng_valid(text, expected):
     assert parse_eng(text) == pytest.approx(expected)
@@ -50,6 +51,7 @@ def test_parse_eng_invalid(text):
     (-47000.0, "-47k"),
     (470e-6, "470u"),
     (2.2e6, "2.2M"),
+    (999999.9, "1M"),
 ])
 def test_format_eng(value, expected):
     assert format_eng(value) == expected
