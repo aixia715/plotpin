@@ -1,0 +1,33 @@
+name: checks
+
+on:
+  workflow_call:
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"          # 对齐生产镜像 python:3.12-slim
+      - run: pip install -r requirements-dev.txt
+      - run: pytest -q
+
+  docker-smoke:
+    needs: tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: 构建镜像
+        run: docker build -t plotpin:ci .
+      - name: 起容器并健康检查
+        run: |
+          docker run -d --name plotpin-ci -p 8000:8000 plotpin:ci
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:8000/healthz >/dev/null; then
+              echo "healthz 200，构建冒烟通过"; docker rm -f plotpin-ci; exit 0
+            fi
+            sleep 1
+          done
+          echo "容器 30 秒内未就绪"; docker logs plotpin-ci; docker rm -f plotpin-ci; exit 1
