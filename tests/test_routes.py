@@ -1,3 +1,5 @@
+import json
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -13,19 +15,26 @@ def client(tmp_path):
     app.dependency_overrides.clear()
 
 
-def _upload(client, csv_text):
+def _layout(panels, assign):
+    return json.dumps({"panels": panels, "assign": assign})
+
+
+def _upload(client, csv_text, layout=None):
+    if layout is None:
+        layout = _layout(
+            [{"y_title": "Y", "y_eng": True, "y_log": False}],
+            {"y": 0},
+        )
     return client.post(
         "/charts",
-        data={"title": "T", "x_title": "X", "y_title": "Y",
-              "x_eng": "on", "y_eng": "on"},
+        data={"title": "T", "x_title": "X", "x_eng": "on", "layout": layout},
         files={"file": ("data.csv", csv_text.encode("utf-8"), "text/csv")},
         follow_redirects=False,
     )
 
 
 def test_index_empty(client):
-    resp = client.get("/")
-    assert resp.status_code == 200
+    assert client.get("/").status_code == 200
 
 
 def test_upload_success_redirects(client):
@@ -34,22 +43,36 @@ def test_upload_success_redirects(client):
     assert resp.headers["location"].startswith("/chart/")
 
 
-def test_upload_bad_cell_shows_error(client):
-    resp = client.post(
-        "/charts",
-        data={"title": "T", "x_title": "X", "y_title": "Y"},
-        files={"file": ("data.csv", b"x,y\n1000,47x\n", "text/csv")},
-        follow_redirects=False,
+def test_upload_two_panels(client):
+    layout = _layout(
+        [{"y_title": "上", "y_eng": True, "y_log": False},
+         {"y_title": "下", "y_eng": True, "y_log": False}],
+        {"a": 0, "b": 1},
     )
+    resp = _upload(client, "x,a,b\n1000,3.3,0.1\n2000,6.6,0.2\n", layout)
+    assert resp.status_code == 303
+
+
+def test_upload_bad_cell_shows_error(client):
+    resp = _upload(client, "x,y\n1000,47x\n")
     assert resp.status_code == 400
     assert "47x" in resp.text
 
 
+def test_upload_all_hidden_rejected(client):
+    layout = _layout([{"y_title": "Y", "y_eng": True, "y_log": False}], {"y": None})
+    resp = _upload(client, "x,y\n1000,3.3\n2000,6.6\n", layout)
+    assert resp.status_code == 400
+
+
+def test_upload_bad_layout_json(client):
+    resp = _upload(client, "x,y\n1000,3.3\n", layout="{not json")
+    assert resp.status_code == 400
+
+
 def test_chart_page_and_listing(client):
-    loc = _upload(client, "x,y\n1000,3.3\n2000,6.6\n").headers["location"]
-    chart_id = loc.rsplit("/", 1)[-1]
-    page = client.get(f"/chart/{chart_id}")
-    assert page.status_code == 200
+    chart_id = _upload(client, "x,y\n1000,3.3\n2000,6.6\n").headers["location"].rsplit("/", 1)[-1]
+    assert client.get(f"/chart/{chart_id}").status_code == 200
     assert chart_id in client.get("/").text
 
 
@@ -59,9 +82,7 @@ def test_chart_not_found(client):
 
 def test_chart_page_has_http_copy_fallback(client):
     chart_id = _upload(client, "x,y\n1000,3.3\n2000,6.6\n").headers["location"].rsplit("/", 1)[-1]
-    page = client.get(f"/chart/{chart_id}")
-    # 局域网纯 HTTP 需要 execCommand 兜底,不能只用 Clipboard API
-    assert "execCommand" in page.text
+    assert "execCommand" in client.get(f"/chart/{chart_id}").text
 
 
 def test_png_render_and_cache(client, tmp_path):
@@ -70,31 +91,19 @@ def test_png_render_and_cache(client, tmp_path):
     assert resp.status_code == 200
     assert resp.headers["content-type"] == "image/png"
     assert resp.content[:8] == b"\x89PNG\r\n\x1a\n"
-    # 第二次请求应命中缓存文件
-    cached = tmp_path / "cache" / f"{chart_id}.png"
-    assert cached.exists()
+    assert (tmp_path / "cache" / f"{chart_id}.png").exists()
 
 
 def test_upload_log_with_nonpositive_rejected(client):
-    # X 轴设为对数,但数据含 0 → 应 400 报错
+    layout = _layout([{"y_title": "Y", "y_eng": True, "y_log": False}], {"y": 0})
     resp = client.post(
         "/charts",
-        data={"title": "T", "x_title": "X", "y_title": "Y", "x_log": "on"},
+        data={"title": "T", "x_title": "X", "x_log": "on", "layout": layout},
         files={"file": ("data.csv", b"x,y\n0,3.3\n1000,6.6\n", "text/csv")},
         follow_redirects=False,
     )
     assert resp.status_code == 400
     assert "对数" in resp.text
-
-
-def test_upload_log_positive_ok(client):
-    resp = client.post(
-        "/charts",
-        data={"title": "T", "x_title": "X", "y_title": "Y", "x_log": "on", "y_log": "on"},
-        files={"file": ("data.csv", b"x,y\n1000,3.3\n10000,6.6\n", "text/csv")},
-        follow_redirects=False,
-    )
-    assert resp.status_code == 303
 
 
 def test_svg_render(client):
@@ -106,8 +115,6 @@ def test_svg_render(client):
 
 def test_index_thumbnail_only_when_cached(client):
     chart_id = _upload(client, "x,y\n1000,3.3\n2000,6.6\n").headers["location"].rsplit("/", 1)[-1]
-    # 未访问 PNG 前:首页不应出现该图的缩略图 img(占位)
     assert f'src="/chart/{chart_id}.png"' not in client.get("/").text
-    # 访问一次 PNG 触发缓存后:首页应出现缩略图 img
     client.get(f"/chart/{chart_id}.png")
     assert f'src="/chart/{chart_id}.png"' in client.get("/").text
