@@ -14,25 +14,6 @@
   </header>
 
   <section class="hero">
-    <h1>上传 CSV，钉成一条永不失效的图表链接。</h1>
-    <p>第一列为横坐标，其余列各画一条曲线，表头即图例。每张图分配一个永久 ID，交互页与静态图片同址可嵌入笔记。</p>
-
-    <div class="ruler" aria-label="坐标轴显示用工程计数法 SI 词头标尺">
-      <div class="ruler-line">
-        <div class="tick"><span class="pow">-15</span><span class="pfx">f</span></div>
-        <div class="tick"><span class="pow">-12</span><span class="pfx">p</span></div>
-        <div class="tick"><span class="pow">-9</span><span class="pfx">n</span></div>
-        <div class="tick"><span class="pow">-6</span><span class="pfx">u</span></div>
-        <div class="tick"><span class="pow">-3</span><span class="pfx">m</span></div>
-        <div class="tick base"><span class="pow">0</span><span class="pfx">1</span></div>
-        <div class="tick"><span class="pow">+3</span><span class="pfx">k</span></div>
-        <div class="tick"><span class="pow">+6</span><span class="pfx">M</span></div>
-        <div class="tick"><span class="pow">+9</span><span class="pfx">G</span></div>
-        <div class="tick"><span class="pow">+12</span><span class="pfx">T</span></div>
-      </div>
-      <div class="ruler-cap"><span>坐标轴显示</span><span>工程计数法</span></div>
-    </div>
-
     {% if error %}<p class="error">{{ error }}</p>{% endif %}
 
     <form id="upload-form" action="/charts" method="post" enctype="multipart/form-data">
