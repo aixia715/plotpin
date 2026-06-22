@@ -107,69 +107,6 @@ header {
   text-transform: uppercase;
 }
 
-/* ── Hero ── */
-.hero h1 {
-  font-size: 34px;
-  line-height: 1.18;
-  font-weight: 600;
-  letter-spacing: -.01em;
-  margin: 0 0 14px;
-  max-width: 18ch;
-}
-.hero p {
-  color: var(--muted);
-  margin: 0 0 26px;
-  max-width: 46ch;
-  font-size: 15px;
-}
-
-/* ── SI Ruler ── */
-.ruler { margin: 0 0 38px; padding: 0; }
-.ruler-line {
-  position: relative;
-  height: 46px;
-  border-bottom: 1.5px solid var(--ink);
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-}
-.tick {
-  position: relative;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-end;
-  height: 100%;
-}
-.tick::after { content: ""; width: 1.5px; height: 11px; background: var(--ink); }
-.tick.base::after { height: 22px; background: var(--accent); width: 2px; }
-.tick .pfx {
-  font-family: var(--mono);
-  font-size: 13px;
-  font-weight: 600;
-  margin-bottom: 7px;
-  color: var(--ink);
-}
-.tick.base .pfx { color: var(--accent); }
-.tick .pow {
-  font-family: var(--mono);
-  font-size: 9px;
-  color: var(--muted);
-  position: absolute;
-  top: 0;
-}
-.ruler-cap {
-  display: flex;
-  justify-content: space-between;
-  font-family: var(--mono);
-  font-size: 10px;
-  letter-spacing: .14em;
-  color: var(--muted);
-  text-transform: uppercase;
-  margin-top: 8px;
-}
-
 /* ── Error ── */
 .error {
   color: #b00020;
