@@ -47,3 +47,25 @@ class ChartSpec:
             ],
             assign={k: (None if v is None else int(v)) for k, v in d["assign"].items()},
         )
+
+
+def validate_spec(spec: ChartSpec, parsed: ParsedCSV) -> None:
+    if not spec.panels:
+        raise CSVParseError("至少需要一个面板")
+    if set(spec.assign.keys()) != set(parsed.y_labels):
+        raise CSVParseError("曲线分配与数据列不一致")
+    n = len(spec.panels)
+    for col, idx in spec.assign.items():
+        if idx is not None and not (0 <= idx < n):
+            raise CSVParseError(f"曲线 `{col}` 指派到不存在的面板")
+    if all(idx is None for idx in spec.assign.values()):
+        raise CSVParseError("至少需要显示一条曲线")
+    if spec.x_log and any(v <= 0 for v in parsed.x):
+        raise CSVParseError("X 轴含 ≤0 值,无法使用对数坐标")
+    col_values = dict(zip(parsed.y_labels, parsed.ys))
+    for pi, panel in enumerate(spec.panels):
+        if not panel.y_log:
+            continue
+        for col, idx in spec.assign.items():
+            if idx == pi and any(v <= 0 for v in col_values[col]):
+                raise CSVParseError(f"面板 {pi + 1} 含 ≤0 值,无法使用对数坐标")
