@@ -3,18 +3,15 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
+from app.spec import ChartSpec
+
 
 @dataclass
 class Chart:
     id: str
     title: str
-    x_title: str
-    y_title: str
-    x_eng: bool
-    y_eng: bool
-    x_log: bool
-    y_log: bool
     created_at: str
+    spec: ChartSpec
 
 
 class Storage:
@@ -39,13 +36,8 @@ class Storage:
                 CREATE TABLE IF NOT EXISTS charts (
                     id TEXT PRIMARY KEY,
                     title TEXT NOT NULL,
-                    x_title TEXT NOT NULL,
-                    y_title TEXT NOT NULL,
-                    x_eng INTEGER NOT NULL,
-                    y_eng INTEGER NOT NULL,
-                    x_log INTEGER NOT NULL,
-                    y_log INTEGER NOT NULL,
-                    created_at TEXT NOT NULL
+                    created_at TEXT NOT NULL,
+                    spec_json TEXT NOT NULL
                 )
                 """
             )
@@ -58,45 +50,30 @@ class Storage:
 
     def exists(self, chart_id: str) -> bool:
         with self._connect() as conn:
-            row = conn.execute(
-                "SELECT 1 FROM charts WHERE id = ?", (chart_id,)
-            ).fetchone()
+            row = conn.execute("SELECT 1 FROM charts WHERE id = ?", (chart_id,)).fetchone()
             return row is not None
 
-    def save_chart(self, chart_id, title, x_title, y_title, x_eng, y_eng, x_log, y_log, csv_bytes) -> Chart:
+    def save_chart(self, chart_id: str, spec: ChartSpec, csv_bytes: bytes) -> Chart:
         created_at = datetime.now(timezone.utc).isoformat()
         self.csv_path(chart_id).write_bytes(csv_bytes)
         with self._connect() as conn:
             conn.execute(
-                """
-                INSERT INTO charts
-                    (id, title, x_title, y_title, x_eng, y_eng, x_log, y_log, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (chart_id, title, x_title, y_title,
-                 int(x_eng), int(y_eng), int(x_log), int(y_log), created_at),
+                "INSERT INTO charts (id, title, created_at, spec_json) VALUES (?, ?, ?, ?)",
+                (chart_id, spec.title, created_at, spec.to_json()),
             )
-        return Chart(chart_id, title, x_title, y_title,
-                     bool(x_eng), bool(y_eng), bool(x_log), bool(y_log), created_at)
+        return Chart(chart_id, spec.title, created_at, spec)
 
     def _row_to_chart(self, row: sqlite3.Row) -> Chart:
         return Chart(
             id=row["id"],
             title=row["title"],
-            x_title=row["x_title"],
-            y_title=row["y_title"],
-            x_eng=bool(row["x_eng"]),
-            y_eng=bool(row["y_eng"]),
-            x_log=bool(row["x_log"]),
-            y_log=bool(row["y_log"]),
             created_at=row["created_at"],
+            spec=ChartSpec.from_json(row["spec_json"]),
         )
 
     def get_chart(self, chart_id: str) -> Chart | None:
         with self._connect() as conn:
-            row = conn.execute(
-                "SELECT * FROM charts WHERE id = ?", (chart_id,)
-            ).fetchone()
+            row = conn.execute("SELECT * FROM charts WHERE id = ?", (chart_id,)).fetchone()
             return self._row_to_chart(row) if row else None
 
     def list_charts(self) -> list[Chart]:
