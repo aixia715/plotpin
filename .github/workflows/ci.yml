@@ -1,0 +1,33 @@
+name: ci
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+
+jobs:
+  checks:
+    uses: ./.github/workflows/_checks.yml
+
+  review:
+    needs: checks
+    # 跳过 synchronize（每次 push）避免重复评审；同时排除 bot 触发者——
+    # opencode 只为「对仓库有写权限的请求者」评审，而 bot 自己开的 PR 作者权限为 none，
+    # 评审会在权限闸门处必然失败，故 bot 开的 PR 直接跳过评审。
+    # 注意：真实机器人账号是裸 opencode-agent（CONTRIBUTOR，非 [bot] App），两种都要排除
+    if: github.actor != 'opencode-agent[bot]' && github.actor != 'opencode-agent' && github.event.action != 'synchronize'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - uses: anomalyco/opencode/github@latest
+        env:
+          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+          # 放行访问仓库目录外的路径，避免 CI 里 opencode 卡在 external_directory 权限确认
+          OPENCODE_CONFIG: ${{ github.workspace }}/.github/opencode-ci.json
+        with:
+          model: ${{ vars.OPENCODE_MODEL }}
+          prompt: "审阅这个 PR 的改动：聚焦正确性、潜在 bug、与本仓库约定（见 CLAUDE.md）的一致性。用中文把结论作为评论发表。"
