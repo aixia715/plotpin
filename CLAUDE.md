@@ -30,7 +30,7 @@
 改动遵循 TDD：先写失败测试再实现。纯逻辑层（`eng_notation` / `parsing` / `rendering` / `ids`）是测试投入重点，应能脱离 Web 与数据库直接单测。测试在 `tests/`，用 `pytest` 运行。
 
 ### 前端设计
-改前端（`templates/`、`static/`）做视觉 / UI 设计时，必须启用并使用 `frontend-design` skill，遵循其设计取向、排版与组件取舍指引。
+改前端（`templates/`、`static/`）做视觉 / UI 设计时，若 `frontend-design` skill 可用（`claude-plugins-official` 插件）则启用并遵循其设计取向、排版与组件取舍指引；不可用时按其设计原则手工实现，不阻塞进度。
 
 ### 时间显示
 网页上展示给用户的所有时间，必须显示为访问者**浏览器的本地时间**。
