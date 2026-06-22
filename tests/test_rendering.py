@@ -64,16 +64,24 @@ def test_build_plotly_spec_hidden_curve_excluded():
 
 
 def test_render_png_returns_png_bytes():
-    data = render_static(_sample(), "T", "X", "Y", True, True, False, False, "png")
+    data = render_static(_sample(), _one_panel(x_eng=True, y_eng=True), "png")
     assert data[:8] == b"\x89PNG\r\n\x1a\n"
 
 
 def test_render_svg_returns_svg():
-    data = render_static(_sample(), "T", "X", "Y", True, True, False, False, "svg")
+    data = render_static(_sample(), _one_panel(x_eng=True, y_eng=True), "svg")
     assert b"<svg" in data[:512]
 
 
+def test_render_two_panels_png():
+    spec = ChartSpec("T", "X", True, False,
+                     [PanelSpec("上", True, False), PanelSpec("下", True, True)],
+                     {"gain": 0, "phase": 1})
+    data = render_static(_sample(), spec, "png")
+    assert data[:8] == b"\x89PNG\r\n\x1a\n"
+
+
 def test_render_log_axis_png():
-    # 对数轴(数据全为正)应正常出图
-    data = render_static(_sample(), "T", "X", "Y", True, True, True, True, "png")
+    spec = _one_panel(x_eng=True, y_eng=True, x_log=True, y_log=True)
+    data = render_static(_sample(), spec, "png")
     assert data[:8] == b"\x89PNG\r\n\x1a\n"

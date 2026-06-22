@@ -10,6 +10,7 @@ from matplotlib.ticker import FuncFormatter  # noqa: E402
 
 from app.eng_notation import format_eng, format_plain, log_ticks, nice_ticks  # noqa: E402
 from app.parsing import ParsedCSV  # noqa: E402
+from app.spec import ChartSpec  # noqa: E402
 
 # 若系统装有中文字体(如 Docker 镜像里的 fonts-noto-cjk),则启用,
 # 让静态 PNG/SVG 的中文标题/轴标签正常显示。本地未安装时保持默认,
@@ -34,23 +35,30 @@ def _ticks(values, use_log: bool):
     return log_ticks(lo, hi) if use_log else nice_ticks(lo, hi)
 
 
-def render_static(parsed, title, x_title, y_title, x_eng, y_eng, x_log, y_log, fmt):
-    fig, ax = plt.subplots(figsize=(8, 5))
+def render_static(parsed, spec, fmt):
+    col_values = dict(zip(parsed.y_labels, parsed.ys))
+    n = len(spec.panels)
+    fig, axes = plt.subplots(n, 1, figsize=(8, max(3, 2.6 * n)), sharex=True, squeeze=False)
+    axes = [row[0] for row in axes]
     try:
-        for label, ys in zip(parsed.y_labels, parsed.ys):
-            ax.plot(parsed.x, ys, label=label)
-        ax.set_title(title)
-        ax.set_xlabel(x_title)
-        ax.set_ylabel(y_title)
-        ax.legend()
-        if x_log:
-            ax.set_xscale("log")
-        if y_log:
-            ax.set_yscale("log")
-        xf = _formatter(x_eng)
-        yf = _formatter(y_eng)
-        ax.xaxis.set_major_formatter(FuncFormatter(lambda v, _pos: xf(v)))
-        ax.yaxis.set_major_formatter(FuncFormatter(lambda v, _pos: yf(v)))
+        for idx, panel in enumerate(spec.panels):
+            ax = axes[idx]
+            for col, i in spec.assign.items():
+                if i == idx:
+                    ax.plot(parsed.x, col_values[col], label=col)
+            ax.set_ylabel(panel.y_title)
+            ax.legend()
+            if panel.y_log:
+                ax.set_yscale("log")
+            yf = _formatter(panel.y_eng)
+            ax.yaxis.set_major_formatter(FuncFormatter(lambda v, _pos, f=yf: f(v)))
+        axes[0].set_title(spec.title)
+        bottom = axes[-1]
+        bottom.set_xlabel(spec.x_title)
+        if spec.x_log:
+            bottom.set_xscale("log")
+        xf = _formatter(spec.x_eng)
+        bottom.xaxis.set_major_formatter(FuncFormatter(lambda v, _pos: xf(v)))
         buf = io.BytesIO()
         fig.savefig(buf, format=fmt, bbox_inches="tight")
         return buf.getvalue()
