@@ -99,6 +99,7 @@
     });
   });
 </script>
+{% if log_warning %}
 <script>
   // 对数轴 ≤0 警告：显示约 3 秒后淡出移除
   const logToast = document.getElementById("log-toast");
@@ -110,6 +111,7 @@
     }, 3000);
   }
 </script>
+{% endif %}
 <script src="/static/localtime.js"></script>
 </body>
 </html>
