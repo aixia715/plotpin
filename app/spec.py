@@ -72,3 +72,21 @@ def validate_spec(spec: ChartSpec, parsed: ParsedCSV) -> None:
         for col, idx in spec.assign.items():
             if idx == pi and any(v <= 0 for v in col_values[col]):
                 raise CSVParseError(f"面板 {pi + 1} 含 ≤0 值,无法使用对数坐标")
+
+
+def default_spec(
+    parsed: ParsedCSV,
+    title: str,
+    x_title: str,
+    x_eng: bool = False,
+    x_log: bool = False,
+) -> ChartSpec:
+    """省略 layout 时的单面板默认配置：所有 Y 列指派到唯一面板。"""
+    return ChartSpec(
+        title=title,
+        x_title=x_title,
+        x_eng=bool(x_eng),
+        x_log=bool(x_log),
+        panels=[PanelSpec(parsed.y_labels[0], False, False)],
+        assign={label: 0 for label in parsed.y_labels},
+    )
