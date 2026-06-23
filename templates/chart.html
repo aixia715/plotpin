@@ -41,6 +41,11 @@
       <button class="copy" data-target="link-svg">复制</button>
     </div>
     <div class="note">PNG / SVG 可用 ![](链接) 直接嵌入笔记 · ID 永久不变</div>
+    <a class="link download" href="/chart/{{ chart.id }}.csv" download="{{ chart.id }}.csv">
+      <span class="tag">CSV</span>
+      <span class="dl-label">下载原始数据 · {{ chart.id }}.csv</span>
+      <span class="dl-btn">下载 ↓</span>
+    </a>
   </div>
 </div>
 
