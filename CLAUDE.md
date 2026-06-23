@@ -10,13 +10,14 @@
 
 ## 架构
 
-三层：纯逻辑（零 Web/DB 依赖，测试重点）→ 数据访问层 → 薄路由（收请求 → 调逻辑 → 渲染模板）。依赖只能从外往里指（路由 → 数据 / 逻辑，逻辑层内部 `rendering → parsing → eng_notation`），不得反向依赖。
+三层：纯逻辑（零 Web/DB 依赖，测试重点）→ 数据访问层 → 薄路由（收请求 → 调逻辑 → 渲染模板）。依赖只能从外往里指（路由 → 数据 / 逻辑，逻辑层内部 `rendering → spec → parsing → eng_notation`），不得反向依赖。
 
 | 层 | 文件 | 职责 |
 |---|---|---|
 | 纯逻辑 | `app/eng_notation.py` | 坐标轴工程计数法显示与刻度计算 |
 | 纯逻辑 | `app/parsing.py` | CSV 解析、数值校验、解析报告 |
-| 纯逻辑 | `app/rendering.py` | 构建 Plotly spec、matplotlib 静态出图（PNG/SVG） |
+| 纯逻辑 | `app/spec.py` | ChartSpec/PanelSpec 多面板配置、序列化与 validate_spec 校验（依赖 parsing） |
+| 纯逻辑 | `app/rendering.py` | 吃 ChartSpec 构建多面板 Plotly spec、matplotlib 静态出图（PNG/SVG） |
 | 纯逻辑 | `app/ids.py` | 稳定分享 id 生成 |
 | 数据访问 | `app/storage.py` | SQLite 读写、建表 |
 | 薄路由 | `app/main.py` | FastAPI 装配与路由：收请求 → 调逻辑 → 渲染模板/返回图片 |
@@ -27,7 +28,7 @@
 ## 规则
 
 ### 测试（TDD）
-改动遵循 TDD：先写失败测试再实现。纯逻辑层（`eng_notation` / `parsing` / `rendering` / `ids`）是测试投入重点，应能脱离 Web 与数据库直接单测。测试在 `tests/`，用 `pytest` 运行。
+改动遵循 TDD：先写失败测试再实现。纯逻辑层（`eng_notation` / `parsing` / `spec` / `rendering` / `ids`）是测试投入重点，应能脱离 Web 与数据库直接单测。测试在 `tests/`，用 `pytest` 运行。
 
 ### 前端设计
 改前端（`templates/`、`static/`）做视觉 / UI 设计时，若 `frontend-design` skill 可用（`claude-plugins-official` 插件）则启用并遵循其设计取向、排版与组件取舍指引；不可用时按其设计原则手工实现，不阻塞进度。

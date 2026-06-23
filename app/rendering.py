@@ -10,6 +10,7 @@ from matplotlib.ticker import FuncFormatter  # noqa: E402
 
 from app.eng_notation import format_eng, format_plain, log_ticks, nice_ticks  # noqa: E402
 from app.parsing import ParsedCSV  # noqa: E402
+from app.spec import ChartSpec  # noqa: E402
 
 # 若系统装有中文字体(如 Docker 镜像里的 fonts-noto-cjk),则启用,
 # 让静态 PNG/SVG 的中文标题/轴标签正常显示。本地未安装时保持默认,
@@ -34,23 +35,30 @@ def _ticks(values, use_log: bool):
     return log_ticks(lo, hi) if use_log else nice_ticks(lo, hi)
 
 
-def render_static(parsed, title, x_title, y_title, x_eng, y_eng, x_log, y_log, fmt):
-    fig, ax = plt.subplots(figsize=(8, 5))
+def render_static(parsed, spec, fmt):
+    col_values = dict(zip(parsed.y_labels, parsed.ys))
+    n = len(spec.panels)
+    fig, axes = plt.subplots(n, 1, figsize=(8, max(3, 2.6 * n)), sharex=True, squeeze=False)
+    axes = [row[0] for row in axes]
     try:
-        for label, ys in zip(parsed.y_labels, parsed.ys):
-            ax.plot(parsed.x, ys, label=label)
-        ax.set_title(title)
-        ax.set_xlabel(x_title)
-        ax.set_ylabel(y_title)
-        ax.legend()
-        if x_log:
-            ax.set_xscale("log")
-        if y_log:
-            ax.set_yscale("log")
-        xf = _formatter(x_eng)
-        yf = _formatter(y_eng)
-        ax.xaxis.set_major_formatter(FuncFormatter(lambda v, _pos: xf(v)))
-        ax.yaxis.set_major_formatter(FuncFormatter(lambda v, _pos: yf(v)))
+        for idx, panel in enumerate(spec.panels):
+            ax = axes[idx]
+            for col, i in spec.assign.items():
+                if i == idx:
+                    ax.plot(parsed.x, col_values[col], label=col)
+            ax.set_ylabel(panel.y_title)
+            ax.legend()
+            if panel.y_log:
+                ax.set_yscale("log")
+            yf = _formatter(panel.y_eng)
+            ax.yaxis.set_major_formatter(FuncFormatter(lambda v, _pos, f=yf: f(v)))
+        axes[0].set_title(spec.title)
+        bottom = axes[-1]
+        bottom.set_xlabel(spec.x_title)
+        if spec.x_log:
+            bottom.set_xscale("log")
+        xf = _formatter(spec.x_eng)
+        bottom.xaxis.set_major_formatter(FuncFormatter(lambda v, _pos: xf(v)))
         buf = io.BytesIO()
         fig.savefig(buf, format=fmt, bbox_inches="tight")
         return buf.getvalue()
@@ -58,43 +66,77 @@ def render_static(parsed, title, x_title, y_title, x_eng, y_eng, x_log, y_log, f
         plt.close(fig)
 
 
-def build_plotly_spec(parsed, title, x_title, y_title, x_eng, y_eng, x_log, y_log):
-    xf = _formatter(x_eng)
-    yf = _formatter(y_eng)
+def _yaxis_key(idx: int) -> str:
+    return "yaxis" if idx == 0 else f"yaxis{idx + 1}"
+
+
+def _yref(idx: int) -> str:
+    return "y" if idx == 0 else f"y{idx + 1}"
+
+
+def _panel_domains(n: int, gap: float = 0.08) -> list[tuple[float, float]]:
+    # 面板 0 在顶部；返回每个面板的 [bottom, top]
+    h = (1 - gap * (n - 1)) / n
+    domains = []
+    for i in range(n):
+        top = 1 - i * (h + gap)
+        domains.append((top - h, top))
+    return domains
+
+
+def build_plotly_spec(parsed, spec):
+    xf = _formatter(spec.x_eng)
+    col_values = dict(zip(parsed.y_labels, parsed.ys))
+    n = len(spec.panels)
+    domains = _panel_domains(n)
 
     traces = []
-    for label, ys in zip(parsed.y_labels, parsed.ys):
+    for col, idx in spec.assign.items():
+        if idx is None:
+            continue
+        panel = spec.panels[idx]
+        yf = _formatter(panel.y_eng)
+        ys = col_values[col]
         traces.append({
             "type": "scatter",
             "mode": "lines",
-            "name": label,
+            "name": col,
             "x": parsed.x,
             "y": ys,
+            "yaxis": _yref(idx),
             "customdata": [[xf(xv), yf(yv)] for xv, yv in zip(parsed.x, ys)],
             "hovertemplate": (
-                f"{x_title}: %{{customdata[0]}}<br>"
-                f"{y_title}: %{{customdata[1]}}<extra>%{{fullData.name}}</extra>"
+                f"{spec.x_title}: %{{customdata[0]}}<br>"
+                f"{panel.y_title}: %{{customdata[1]}}<extra>%{{fullData.name}}</extra>"
             ),
         })
 
-    x_ticks = _ticks(parsed.x, x_log)
-    all_y = [v for ys in parsed.ys for v in ys]
-    y_ticks = _ticks(all_y, y_log)
-
+    x_ticks = _ticks(parsed.x, spec.x_log)
+    bottom_ref = _yref(n - 1)
     xaxis = {
-        "title": {"text": x_title},
+        "title": {"text": spec.x_title},
         "tickvals": x_ticks,
         "ticktext": [xf(t) for t in x_ticks],
+        "anchor": bottom_ref,
     }
-    yaxis = {
-        "title": {"text": y_title},
-        "tickvals": y_ticks,
-        "ticktext": [yf(t) for t in y_ticks],
-    }
-    if x_log:
+    if spec.x_log:
         xaxis["type"] = "log"
-    if y_log:
-        yaxis["type"] = "log"
 
-    layout = {"title": {"text": title}, "xaxis": xaxis, "yaxis": yaxis}
+    layout = {"title": {"text": spec.title}, "xaxis": xaxis}
+    for idx, panel in enumerate(spec.panels):
+        yf = _formatter(panel.y_eng)
+        panel_cols = [col_values[c] for c, i in spec.assign.items() if i == idx]
+        flat = [v for ys in panel_cols for v in ys] or [0.0, 1.0]
+        y_ticks = _ticks(flat, panel.y_log)
+        ax = {
+            "title": {"text": panel.y_title},
+            "tickvals": y_ticks,
+            "ticktext": [yf(t) for t in y_ticks],
+            "domain": list(domains[idx]),
+            "anchor": "x",
+        }
+        if panel.y_log:
+            ax["type"] = "log"
+        layout[_yaxis_key(idx)] = ax
+
     return {"data": traces, "layout": layout}
