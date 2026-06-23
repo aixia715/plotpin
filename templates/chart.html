@@ -20,7 +20,7 @@
   </div>
 
   <div class="panel">
-    <div id="plot" style="width:100%;height:420px;"></div>
+    <div id="plot" style="width:100%;"></div>
   </div>
 
   <div class="readout">
@@ -47,6 +47,8 @@
 <script id="spec" type="application/json">{{ spec_json | safe }}</script>
 <script>
   const spec = JSON.parse(document.getElementById("spec").textContent);
+  const panelN = Object.keys(spec.layout).filter((k) => /^yaxis\d*$/.test(k)).length || 1;
+  document.getElementById("plot").style.height = Math.max(360, panelN * 300) + "px";
   Plotly.newPlot("plot", spec.data, spec.layout, {responsive: true});
   const base = location.origin + "/chart/{{ chart.id }}";
   document.getElementById("link-page").textContent = base;
