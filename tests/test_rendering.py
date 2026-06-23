@@ -54,6 +54,8 @@ def test_build_plotly_spec_two_panels():
     # 面板 1 为对数
     assert out["layout"]["yaxis"].get("type") != "log"
     assert out["layout"]["yaxis2"]["type"] == "log"
+    # 面板 0 在上（domain 底边 ≥ 面板 1 顶边）
+    assert out["layout"]["yaxis"]["domain"][0] >= out["layout"]["yaxis2"]["domain"][1]
 
 
 def test_build_plotly_spec_hidden_curve_excluded():

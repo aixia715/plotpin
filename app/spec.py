@@ -60,6 +60,9 @@ def validate_spec(spec: ChartSpec, parsed: ParsedCSV) -> None:
             raise CSVParseError(f"曲线 `{col}` 指派到不存在的面板")
     if all(idx is None for idx in spec.assign.values()):
         raise CSVParseError("至少需要显示一条曲线")
+    for pi in range(len(spec.panels)):
+        if not any(idx == pi for idx in spec.assign.values()):
+            raise CSVParseError(f"面板 {pi + 1} 没有分配任何曲线")
     if spec.x_log and any(v <= 0 for v in parsed.x):
         raise CSVParseError("X 轴含 ≤0 值,无法使用对数坐标")
     col_values = dict(zip(parsed.y_labels, parsed.ys))

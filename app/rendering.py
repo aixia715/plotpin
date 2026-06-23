@@ -125,8 +125,8 @@ def build_plotly_spec(parsed, spec):
     layout = {"title": {"text": spec.title}, "xaxis": xaxis}
     for idx, panel in enumerate(spec.panels):
         yf = _formatter(panel.y_eng)
-        members = [col_values[c] for c, i in spec.assign.items() if i == idx]
-        flat = [v for ys in members for v in ys] or [0.0, 1.0]
+        panel_cols = [col_values[c] for c, i in spec.assign.items() if i == idx]
+        flat = [v for ys in panel_cols for v in ys] or [0.0, 1.0]
         y_ticks = _ticks(flat, panel.y_log)
         ax = {
             "title": {"text": panel.y_title},

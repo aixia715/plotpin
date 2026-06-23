@@ -4,7 +4,6 @@ const fileInput = document.getElementById("file");
 const config = document.getElementById("config");
 const fileLabel = document.getElementById("file-label");
 const builder = document.getElementById("builder");
-const hint = document.getElementById("builder-hint");
 const layoutField = document.getElementById("layout");
 const form = document.getElementById("upload-form");
 

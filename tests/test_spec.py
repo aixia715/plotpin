@@ -94,3 +94,12 @@ def test_validate_x_log_nonpositive():
     spec = ChartSpec("T", "X", True, True, [PanelSpec("a", True, False)], {"gain": 0})
     with pytest.raises(CSVParseError):
         validate_spec(spec, parsed)
+
+
+def test_validate_empty_panel_rejected():
+    # 2 面板但所有曲线都在面板 0 → 面板 1 空 → 应报错
+    spec = ChartSpec("T", "X", True, False,
+                     [PanelSpec("a", True, False), PanelSpec("b", True, True)],
+                     {"gain": 0, "phase": 0, "noise": 0})
+    with pytest.raises(CSVParseError):
+        validate_spec(spec, _parsed())
