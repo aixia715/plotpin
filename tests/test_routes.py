@@ -134,6 +134,20 @@ def test_svg_render(client):
     assert "image/svg" in resp.headers["content-type"]
 
 
+def test_csv_download(client):
+    csv_text = "x,y\n1000,3.3\n2000,6.6\n"
+    chart_id = _upload(client, csv_text).headers["location"].rsplit("/", 1)[-1]
+    resp = client.get(f"/chart/{chart_id}.csv")
+    assert resp.status_code == 200
+    assert "text/csv" in resp.headers["content-type"]
+    assert f"{chart_id}.csv" in resp.headers["content-disposition"]
+    assert resp.content == csv_text.encode("utf-8")
+
+
+def test_csv_download_not_found(client):
+    assert client.get("/chart/missing.csv").status_code == 404
+
+
 def test_index_thumbnail_only_when_cached(client):
     chart_id = _upload(client, "x,y\n1000,3.3\n2000,6.6\n").headers["location"].rsplit("/", 1)[-1]
     assert f'src="/chart/{chart_id}.png"' not in client.get("/").text

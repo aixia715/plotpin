@@ -112,6 +112,17 @@ def _image(chart_id: str, ext: str, media_type: str, store: Storage) -> Response
     return Response(content=data, media_type=media_type)
 
 
+@app.get("/chart/{chart_id}.csv")
+def chart_csv(chart_id: str, store: Storage = Depends(get_storage)):
+    if store.get_chart(chart_id) is None:
+        return _not_found_plain()
+    return Response(
+        content=store.read_csv(chart_id),
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{chart_id}.csv"'},
+    )
+
+
 @app.get("/chart/{chart_id}", response_class=HTMLResponse)
 def chart_page(chart_id: str, request: Request, store: Storage = Depends(get_storage)):
     chart = store.get_chart(chart_id)
