@@ -53,34 +53,3 @@ def test_reject_not_csv():
 def test_reject_undecodable_bytes():
     with pytest.raises(CSVParseError):
         read_csv_bytes(b"\x80\x81\x82\xff\xfe")
-
-
-def _parsed():
-    return ParsedCSV(
-        x_label="x", x=[1.0, 10.0, 100.0],
-        y_labels=["y"], ys=[[0.0, 5.0, 50.0]],
-    )
-
-
-def test_log_ok_when_all_positive():
-    from app.parsing import check_log_positivity
-    p = ParsedCSV("x", [1.0, 10.0], ["y"], [[2.0, 20.0]])
-    check_log_positivity(p, True, True)  # 不抛异常
-
-
-def test_log_rejects_nonpositive_y():
-    from app.parsing import check_log_positivity
-    with pytest.raises(CSVParseError):
-        check_log_positivity(_parsed(), False, True)  # Y 含 0
-
-
-def test_log_rejects_nonpositive_x():
-    from app.parsing import check_log_positivity
-    p = ParsedCSV("x", [0.0, 10.0], ["y"], [[2.0, 20.0]])
-    with pytest.raises(CSVParseError):
-        check_log_positivity(p, True, False)  # X 含 0
-
-
-def test_no_check_when_log_off():
-    from app.parsing import check_log_positivity
-    check_log_positivity(_parsed(), False, False)  # 线性轴,含 0 也不报错

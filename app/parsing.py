@@ -68,10 +68,3 @@ def read_csv_bytes(raw: bytes) -> ParsedCSV:
         y_labels=y_labels,
         ys=y_series,
     )
-
-
-def check_log_positivity(parsed: ParsedCSV, x_log: bool, y_log: bool) -> None:
-    if x_log and any(v <= 0 for v in parsed.x):
-        raise CSVParseError("X 轴含 ≤0 值,无法使用对数坐标")
-    if y_log and any(v <= 0 for col in parsed.ys for v in col):
-        raise CSVParseError("Y 轴含 ≤0 值,无法使用对数坐标")
