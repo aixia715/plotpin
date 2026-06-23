@@ -9,6 +9,9 @@
 </head>
 <body>
 <div class="wrap">
+  {% if log_warning %}
+  <div id="log-toast" class="toast" role="status">{{ log_warning }}</div>
+  {% endif %}
   <div class="topbar">
     <a class="back" href="/">← 返回记录</a>
     <div class="brand">Plot<span class="pin">Pin</span></div>
@@ -95,6 +98,17 @@
       sel.addRange(r);
     });
   });
+</script>
+<script>
+  // 对数轴 ≤0 警告：显示约 3 秒后淡出移除
+  const logToast = document.getElementById("log-toast");
+  if (logToast) {
+    requestAnimationFrame(() => logToast.classList.add("show"));
+    setTimeout(() => {
+      logToast.classList.remove("show");
+      setTimeout(() => logToast.remove(), 300);
+    }, 3000);
+  }
 </script>
 <script src="/static/localtime.js"></script>
 </body>
