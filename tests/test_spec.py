@@ -74,12 +74,17 @@ def test_validate_all_hidden():
         validate_spec(spec, _parsed())
 
 
-def test_validate_log_panel_with_nonpositive():
-    # phase 含 -1，归到对数面板 0 → 报错
+def test_apply_log_filter_y_panel_gaps_nonpositive():
+    from app.spec import apply_log_filter
+    # phase 含 -1，归到对数面板 0 → 现在剔除而非报错
     spec = ChartSpec("T", "X", True, False, [PanelSpec("a", True, True)],
                      {"gain": 0, "phase": 0, "noise": None})
-    with pytest.raises(CSVParseError):
-        validate_spec(spec, _parsed())
+    out, report = apply_log_filter(spec=spec, parsed=_parsed())
+    # phase 第 0 个值 -1 被置空成缺口；gain 不变
+    assert out.ys[_parsed().y_labels.index("phase")][0] is None
+    assert out.ys[_parsed().y_labels.index("gain")] == [1.0, 2.0, 3.0]
+    assert report.y_dropped is True
+    assert report.x_dropped is False
 
 
 def test_validate_log_panel_positive_ok():
@@ -89,11 +94,15 @@ def test_validate_log_panel_positive_ok():
     validate_spec(spec, _parsed())
 
 
-def test_validate_x_log_nonpositive():
-    parsed = ParsedCSV("f", [0.0, 1.0, 2.0], ["gain"], [[1.0, 2.0, 3.0]])
+def test_apply_log_filter_x_drops_nonpositive_rows():
+    from app.spec import apply_log_filter
+    parsed = ParsedCSV("f", [0.0, 1.0, 2.0], ["gain"], [[5.0, 2.0, 3.0]])
     spec = ChartSpec("T", "X", True, True, [PanelSpec("a", True, False)], {"gain": 0})
-    with pytest.raises(CSVParseError):
-        validate_spec(spec, parsed)
+    out, report = apply_log_filter(parsed, spec)
+    assert out.x == [1.0, 2.0]
+    assert out.ys == [[2.0, 3.0]]       # y 同步对齐删除
+    assert report.x_dropped is True
+    assert report.y_dropped is False
 
 
 def test_validate_empty_panel_rejected():
@@ -103,6 +112,78 @@ def test_validate_empty_panel_rejected():
                      {"gain": 0, "phase": 0, "noise": 0})
     with pytest.raises(CSVParseError):
         validate_spec(spec, _parsed())
+
+
+def test_apply_log_filter_no_log_unchanged():
+    from app.spec import apply_log_filter
+    spec = ChartSpec("T", "X", True, False, [PanelSpec("a", True, False)],
+                     {"gain": 0, "phase": 0, "noise": 0})
+    out, report = apply_log_filter(_parsed(), spec)
+    assert out.ys == _parsed().ys
+    assert report.x_dropped is False and report.y_dropped is False
+
+
+def test_apply_log_filter_nonlog_panel_keeps_nonpositive():
+    from app.spec import apply_log_filter
+    # phase(-1) 在非 log 面板 1 → 保留；面板 0 为 log 只含全正 gain
+    spec = ChartSpec("T", "X", True, False,
+                     [PanelSpec("a", True, True), PanelSpec("b", True, False)],
+                     {"gain": 0, "phase": 1, "noise": None})
+    out, report = apply_log_filter(_parsed(), spec)
+    assert out.ys[_parsed().y_labels.index("phase")] == [-1.0, 0.5, 2.0]
+    assert report.y_dropped is False
+
+
+def test_apply_log_filter_all_positive_no_drop():
+    from app.spec import apply_log_filter
+    spec = ChartSpec("T", "X", True, True, [PanelSpec("a", True, True)],
+                     {"gain": 0, "phase": None, "noise": 0})
+    out, report = apply_log_filter(_parsed(), spec)
+    assert report.x_dropped is False and report.y_dropped is False
+
+
+def test_apply_log_filter_x_all_nonpositive_raises():
+    from app.spec import apply_log_filter
+    parsed = ParsedCSV("f", [0.0, -1.0], ["gain"], [[2.0, 3.0]])
+    spec = ChartSpec("T", "X", True, True, [PanelSpec("a", True, False)], {"gain": 0})
+    with pytest.raises(CSVParseError):
+        apply_log_filter(parsed, spec)
+
+
+def test_apply_log_filter_panel_all_nonpositive_raises():
+    from app.spec import apply_log_filter
+    parsed = ParsedCSV("f", [1.0, 2.0], ["gain"], [[0.0, -1.0]])
+    spec = ChartSpec("T", "X", True, False, [PanelSpec("a", True, True)], {"gain": 0})
+    with pytest.raises(CSVParseError):
+        apply_log_filter(parsed, spec)
+
+
+def test_apply_log_filter_panel_one_col_allnonpositive_ok():
+    from app.spec import apply_log_filter
+    # gain 全 ≤0 但同面板 noise 有正数 → 不报错，gain 整列置空
+    parsed = ParsedCSV("f", [1.0, 2.0], ["gain", "noise"], [[0.0, -1.0], [10.0, 20.0]])
+    spec = ChartSpec("T", "X", True, False, [PanelSpec("a", True, True)],
+                     {"gain": 0, "noise": 0})
+    out, report = apply_log_filter(parsed, spec)
+    assert out.ys[0] == [None, None]
+    assert out.ys[1] == [10.0, 20.0]
+    assert report.y_dropped is True
+
+
+def test_validate_spec_partial_nonpositive_now_ok():
+    from app.spec import validate_spec
+    # x_log 含 0 但有正数剩余 → validate_spec 不再抛
+    parsed = ParsedCSV("f", [0.0, 1.0, 2.0], ["gain"], [[5.0, 2.0, 3.0]])
+    spec = ChartSpec("T", "X", True, True, [PanelSpec("a", True, False)], {"gain": 0})
+    validate_spec(spec, parsed)  # 不抛异常
+
+
+def test_validate_spec_all_nonpositive_still_raises():
+    from app.spec import validate_spec
+    parsed = ParsedCSV("f", [0.0, -1.0], ["gain"], [[2.0, 3.0]])
+    spec = ChartSpec("T", "X", True, True, [PanelSpec("a", True, False)], {"gain": 0})
+    with pytest.raises(CSVParseError):
+        validate_spec(spec, parsed)
 
 
 def _parsed_with_labels(y_labels):

@@ -87,3 +87,54 @@ def test_render_log_axis_png():
     spec = _one_panel(x_eng=True, y_eng=True, x_log=True, y_log=True)
     data = render_static(_sample(), spec, "png")
     assert data[:8] == b"\x89PNG\r\n\x1a\n"
+
+
+def test_ticks_ignore_none():
+    from app.rendering import _ticks
+    ticks = _ticks([None, 1.0, 10.0, 100.0], True)
+    assert ticks
+    assert all(t > 0 for t in ticks)
+
+
+def test_build_spec_y_log_nulls_nonpositive_and_warns():
+    from app.rendering import build_plotly_spec
+    parsed = ParsedCSV("x", [1.0, 10.0, 100.0], ["gain"], [[0.0, 5.0, 50.0]])
+    spec = ChartSpec("T", "X", False, False, [PanelSpec("Y", False, True)], {"gain": 0})
+    out = build_plotly_spec(parsed, spec)
+    assert out["data"][0]["y"][0] is None
+    assert out["data"][0]["y"][1:] == [5.0, 50.0]
+    assert out["data"][0]["customdata"][0][1] is None   # None 点 customdata 不崩
+    assert out["warning"] == "对数 Y 轴包含 ≤0 的值，已自动忽略"
+
+
+def test_build_spec_x_log_drops_rows_and_warns():
+    from app.rendering import build_plotly_spec
+    parsed = ParsedCSV("x", [0.0, 10.0, 100.0], ["gain"], [[1.0, 2.0, 3.0]])
+    spec = ChartSpec("T", "X", False, True, [PanelSpec("Y", False, False)], {"gain": 0})
+    out = build_plotly_spec(parsed, spec)
+    assert out["data"][0]["x"] == [10.0, 100.0]
+    assert out["data"][0]["y"] == [2.0, 3.0]
+    assert out["warning"] == "对数 X 轴包含 ≤0 的值，已自动忽略"
+
+
+def test_build_spec_both_axes_warning_text():
+    from app.rendering import build_plotly_spec
+    # x=0.0 → x_log 行过滤(x_dropped); 剩余 x=[10.0, 100.0], gain=[-1.0, 50.0] → y_log 点置 None(y_dropped)
+    parsed = ParsedCSV("x", [0.0, 10.0, 100.0], ["gain"], [[5.0, -1.0, 50.0]])
+    spec = ChartSpec("T", "X", False, True, [PanelSpec("Y", False, True)], {"gain": 0})
+    out = build_plotly_spec(parsed, spec)
+    assert out["warning"] == "对数 X 轴和 Y 轴包含 ≤0 的值，已自动忽略"
+
+
+def test_build_spec_no_warning_when_clean():
+    from app.rendering import build_plotly_spec
+    out = build_plotly_spec(_sample(), _one_panel(x_log=True, y_log=True))
+    assert out["warning"] == ""
+
+
+def test_render_static_with_gaps_does_not_crash():
+    from app.rendering import render_static
+    parsed = ParsedCSV("x", [1.0, 10.0, 100.0], ["gain"], [[0.0, 5.0, 50.0]])
+    spec = ChartSpec("T", "X", False, False, [PanelSpec("Y", False, True)], {"gain": 0})
+    data = render_static(parsed, spec, "png")
+    assert data[:8] == b"\x89PNG\r\n\x1a\n"

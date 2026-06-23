@@ -609,6 +609,36 @@ header {
   flex: none;
 }
 
+/* ── Log-axis warning toast ── */
+.toast {
+  position: fixed;
+  top: 16px;
+  left: 50%;
+  transform: translate(-50%, -10px);
+  max-width: min(92vw, 520px);
+  padding: 10px 16px;
+  border-radius: 4px;
+  background: var(--ink);
+  color: var(--paper);
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1.45;
+  letter-spacing: .01em;
+  box-shadow: 0 6px 24px rgba(19, 33, 42, .22);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  z-index: 1000;
+}
+.toast.show {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toast { transition: opacity 0.3s ease; transform: translate(-50%, 0); }
+}
+
 /* ── Footer ── */
 footer {
   margin-top: 54px;
