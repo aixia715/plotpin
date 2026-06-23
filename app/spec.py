@@ -113,3 +113,21 @@ def validate_spec(spec: ChartSpec, parsed: ParsedCSV) -> None:
             raise CSVParseError(f"面板 {pi + 1} 没有分配任何曲线")
     # 对数轴 ≤0：部分剔除不报错，仅"全 ≤0"在此触发拒绝
     apply_log_filter(parsed, spec)
+
+
+def default_spec(
+    parsed: ParsedCSV,
+    title: str,
+    x_title: str,
+    x_eng: bool = False,
+    x_log: bool = False,
+) -> ChartSpec:
+    """省略 layout 时的单面板默认配置：所有 Y 列指派到唯一面板。"""
+    return ChartSpec(
+        title=title,
+        x_title=x_title,
+        x_eng=bool(x_eng),
+        x_log=bool(x_log),
+        panels=[PanelSpec(parsed.y_labels[0], False, False)],
+        assign={label: 0 for label in parsed.y_labels},
+    )

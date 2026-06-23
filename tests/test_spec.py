@@ -1,7 +1,7 @@
 import pytest
 
 from app.parsing import CSVParseError, ParsedCSV
-from app.spec import ChartSpec, PanelSpec, validate_spec
+from app.spec import ChartSpec, PanelSpec, default_spec, validate_spec
 
 
 def _spec() -> ChartSpec:
@@ -184,3 +184,35 @@ def test_validate_spec_all_nonpositive_still_raises():
     spec = ChartSpec("T", "X", True, True, [PanelSpec("a", True, False)], {"gain": 0})
     with pytest.raises(CSVParseError):
         validate_spec(spec, parsed)
+
+
+def _parsed_with_labels(y_labels):
+    return ParsedCSV(
+        x_label="freq",
+        x=[1000.0, 2000.0],
+        y_labels=y_labels,
+        ys=[[1.0, 2.0] for _ in y_labels],
+    )
+
+
+def test_default_spec_single_panel_all_columns_assigned():
+    parsed = _parsed_with_labels(["gain", "phase"])
+    spec = default_spec(parsed, title="我的图", x_title="频率")
+    assert spec.title == "我的图"
+    assert spec.x_title == "频率"
+    assert spec.x_eng is False and spec.x_log is False
+    assert len(spec.panels) == 1
+    assert spec.panels[0].y_title == "gain"  # 首个 Y 列名
+    assert spec.panels[0].y_eng is False and spec.panels[0].y_log is False
+    assert spec.assign == {"gain": 0, "phase": 0}  # 所有 Y 列进面板 0
+
+
+def test_default_spec_passes_x_axis_flags():
+    spec = default_spec(_parsed_with_labels(["y"]), title="t", x_title="x", x_eng=True, x_log=True)
+    assert spec.x_eng is True and spec.x_log is True
+
+
+def test_default_spec_result_passes_validation():
+    parsed = _parsed_with_labels(["a", "b"])
+    spec = default_spec(parsed, title="t", x_title="x")
+    validate_spec(spec, parsed)  # 不抛异常即通过

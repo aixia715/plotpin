@@ -1,16 +1,17 @@
 import json
 import os
+from pathlib import Path
 
-from fastapi import Depends, FastAPI, File, Form, Request, UploadFile
-from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from app.ids import new_id
 from app.parsing import CSVParseError, read_csv_bytes
 from app.rendering import build_plotly_spec, render_static
-from app.spec import ChartSpec, PanelSpec, validate_spec
-from app.storage import Storage
+from app.spec import ChartSpec, PanelSpec, default_spec, validate_spec
+from app.storage import Chart, Storage
 
 app = FastAPI(title="PlotPin")
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -59,6 +60,19 @@ def _build_spec(title: str, x_title: str, x_eng: bool, x_log: bool, layout_json:
     return ChartSpec(title, x_title, bool(x_eng), bool(x_log), panels, assign)
 
 
+def _create_chart(store: Storage, raw: bytes, spec: ChartSpec) -> Chart:
+    chart_id = new_id()
+    while store.exists(chart_id):
+        chart_id = new_id()
+    return store.save_chart(chart_id, spec, raw)
+
+
+def _filename_stem(name: str | None) -> str:
+    if not name:
+        return "chart"
+    return Path(name).stem or "chart"
+
+
 @app.post("/charts")
 async def create_chart(
     request: Request,
@@ -82,11 +96,45 @@ async def create_chart(
             {"items": _index_items(store), "error": str(err)},
             status_code=400,
         )
-    chart_id = new_id()
-    while store.exists(chart_id):
-        chart_id = new_id()
-    store.save_chart(chart_id, spec, raw)
-    return RedirectResponse(url=f"/chart/{chart_id}", status_code=303)
+    chart = _create_chart(store, raw, spec)
+    return RedirectResponse(url=f"/chart/{chart.id}", status_code=303)
+
+
+@app.post("/api/charts")
+async def create_chart_api(
+    request: Request,
+    file: UploadFile = File(...),
+    title: str | None = Form(None),
+    x_title: str | None = Form(None),
+    x_eng: bool = Form(False),
+    x_log: bool = Form(False),
+    layout: str | None = Form(None),
+    store: Storage = Depends(get_storage),
+):
+    raw = await file.read()
+    try:
+        parsed = read_csv_bytes(raw)
+        resolved_title = title or _filename_stem(file.filename)
+        resolved_x_title = x_title or parsed.x_label
+        if layout is not None:
+            spec = _build_spec(resolved_title, resolved_x_title, x_eng, x_log, layout)
+        else:
+            spec = default_spec(parsed, resolved_title, resolved_x_title, x_eng, x_log)
+        validate_spec(spec, parsed)
+    except CSVParseError as err:
+        raise HTTPException(status_code=400, detail=str(err))
+    chart = _create_chart(store, raw, spec)
+    return JSONResponse(
+        status_code=201,
+        content={
+            "id": chart.id,
+            "page_url": str(request.url_for("chart_page", chart_id=chart.id)),
+            "png_url": str(request.url_for("chart_png", chart_id=chart.id)),
+            "svg_url": str(request.url_for("chart_svg", chart_id=chart.id)),
+            "csv_url": str(request.url_for("chart_csv", chart_id=chart.id)),
+            "created_at": chart.created_at,
+        },
+    )
 
 
 @app.get("/chart/{chart_id}.png")
