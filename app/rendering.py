@@ -10,7 +10,7 @@ from matplotlib.ticker import FuncFormatter  # noqa: E402
 
 from app.eng_notation import format_eng, format_plain, log_ticks, nice_ticks  # noqa: E402
 from app.parsing import ParsedCSV  # noqa: E402
-from app.spec import ChartSpec  # noqa: E402
+from app.spec import ChartSpec, LogFilterReport, apply_log_filter  # noqa: E402
 
 # 若系统装有中文字体(如 Docker 镜像里的 fonts-noto-cjk),则启用,
 # 让静态 PNG/SVG 的中文标题/轴标签正常显示。本地未安装时保持默认,
@@ -31,11 +31,23 @@ def _formatter(use_eng: bool):
 
 
 def _ticks(values, use_log: bool):
-    lo, hi = min(values), max(values)
+    vals = [v for v in values if v is not None]
+    lo, hi = min(vals), max(vals)
     return log_ticks(lo, hi) if use_log else nice_ticks(lo, hi)
 
 
+def _log_warning_text(report: LogFilterReport) -> str:
+    if report.x_dropped and report.y_dropped:
+        return "对数 X 轴和 Y 轴包含 ≤0 的值，已自动忽略"
+    if report.x_dropped:
+        return "对数 X 轴包含 ≤0 的值，已自动忽略"
+    if report.y_dropped:
+        return "对数 Y 轴包含 ≤0 的值，已自动忽略"
+    return ""
+
+
 def render_static(parsed, spec, fmt):
+    parsed, _report = apply_log_filter(parsed, spec)
     col_values = dict(zip(parsed.y_labels, parsed.ys))
     n = len(spec.panels)
     fig, axes = plt.subplots(n, 1, figsize=(8, max(3, 2.6 * n)), sharex=True, squeeze=False)
@@ -45,7 +57,8 @@ def render_static(parsed, spec, fmt):
             ax = axes[idx]
             for col, i in spec.assign.items():
                 if i == idx:
-                    ax.plot(parsed.x, col_values[col], label=col)
+                    ys_plot = [float("nan") if v is None else v for v in col_values[col]]
+                    ax.plot(parsed.x, ys_plot, label=col)
             ax.set_ylabel(panel.y_title)
             ax.legend()
             if panel.y_log:
@@ -85,6 +98,7 @@ def _panel_domains(n: int, gap: float = 0.08) -> list[tuple[float, float]]:
 
 
 def build_plotly_spec(parsed, spec):
+    parsed, report = apply_log_filter(parsed, spec)
     xf = _formatter(spec.x_eng)
     col_values = dict(zip(parsed.y_labels, parsed.ys))
     n = len(spec.panels)
@@ -104,7 +118,10 @@ def build_plotly_spec(parsed, spec):
             "x": parsed.x,
             "y": ys,
             "yaxis": _yref(idx),
-            "customdata": [[xf(xv), yf(yv)] for xv, yv in zip(parsed.x, ys)],
+            "customdata": [
+                [xf(xv), (yf(yv) if yv is not None else None)]
+                for xv, yv in zip(parsed.x, ys)
+            ],
             "hovertemplate": (
                 f"{spec.x_title}: %{{customdata[0]}}<br>"
                 f"{panel.y_title}: %{{customdata[1]}}<extra>%{{fullData.name}}</extra>"
@@ -139,4 +156,4 @@ def build_plotly_spec(parsed, spec):
             ax["type"] = "log"
         layout[_yaxis_key(idx)] = ax
 
-    return {"data": traces, "layout": layout}
+    return {"data": traces, "layout": layout, "warning": _log_warning_text(report)}
