@@ -8,6 +8,7 @@ const layoutField = document.getElementById("layout");
 const form = document.getElementById("upload-form");
 
 let columns = [];      // Y 列名（首行去掉第一列）
+let xLabel = "";       // X 列名（首行第一列）
 let panelCount = 1;
 
 function readHeader(file) {
@@ -16,11 +17,27 @@ function readHeader(file) {
     reader.onload = () => {
       const firstLine = String(reader.result).split(/\r?\n/)[0] || "";
       const cells = firstLine.split(",").map((s) => s.trim());
+      xLabel = cells[0] || "";
       resolve(cells.slice(1)); // 第一列是 X
     };
     reader.onerror = () => resolve([]);
     reader.readAsText(file.slice(0, 64 * 1024)); // 只读前 64KB 足够拿表头
   });
+}
+
+function filenameStem(name) {
+  if (!name) return "";
+  const base = name.split("/").pop().split("\\").pop();
+  return base.replace(/\.[^.]*$/, "") || "";
+}
+
+function defaultPanelTitle(pi) {
+  // 面板 Y 轴默认标题：取分配到该面板的首条曲线表头
+  const selects = builder.querySelectorAll("select[data-col]");
+  for (const sel of selects) {
+    if (parseInt(sel.value, 10) === pi) return sel.dataset.col;
+  }
+  return "Y";
 }
 
 function render() {
@@ -49,9 +66,10 @@ function render() {
 
   html += '<div class="panel-cfgs">';
   for (let i = 0; i < panelCount; i++) {
+    const def = defaultPanelTitle(i);
     html += '<div class="panel-cfg" data-panel="' + i + '">' +
       '<div class="ax"><span class="pnum">面板 ' + (i + 1) + "</span> Y 轴</div>" +
-      '<input type="text" class="p-title" placeholder="Y 轴标题（如 增益 dB）">' +
+      '<input type="text" class="p-title" placeholder="留空则用表头" value="' + escapeHtml(def) + '">' +
       '<div class="opt"><input type="checkbox" class="p-eng" id="p-eng-' + i +
       '" checked><label class="lab" for="p-eng-' + i + '">工程计数法</label></div>' +
       '<div class="opt"><input type="checkbox" class="p-log" id="p-log-' + i +
@@ -99,9 +117,15 @@ if (fileInput && config) {
   fileInput.addEventListener("change", async () => {
     config.hidden = !fileInput.files.length;
     if (fileInput.files.length) {
-      if (fileLabel) fileLabel.textContent = "▤ " + fileInput.files[0].name;
-      columns = await readHeader(fileInput.files[0]);
+      const f = fileInput.files[0];
+      if (fileLabel) fileLabel.textContent = "▤ " + f.name;
+      columns = await readHeader(f);
       panelCount = 1;
+      // 标题 / X 轴标题：仅在用户未填写时自动预填(文件名主名 / 首列表头)
+      const titleEl = document.getElementById("title");
+      const xTitleEl = document.getElementById("x_title");
+      if (titleEl && !titleEl.value) titleEl.value = filenameStem(f.name);
+      if (xTitleEl && !xTitleEl.value) xTitleEl.value = xLabel;
       render();
     }
   });

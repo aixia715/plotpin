@@ -1,6 +1,5 @@
 import json
 import os
-from pathlib import Path
 
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
@@ -10,7 +9,14 @@ from fastapi.templating import Jinja2Templates
 from app.ids import new_id
 from app.parsing import CSVParseError, read_csv_bytes
 from app.rendering import build_plotly_spec, render_static
-from app.spec import ChartSpec, PanelSpec, default_spec, validate_spec
+from app.spec import (
+    ChartSpec,
+    PanelSpec,
+    auto_panel_y_title,
+    auto_titles,
+    default_spec,
+    validate_spec,
+)
 from app.storage import Chart, Storage
 
 app = FastAPI(title="PlotPin")
@@ -47,7 +53,14 @@ def index(request: Request, store: Storage = Depends(get_storage)):
     return templates.TemplateResponse(request, "index.html", {"items": _index_items(store)})
 
 
-def _build_spec(title: str, x_title: str, x_eng: bool, x_log: bool, layout_json: str) -> ChartSpec:
+def _build_spec(
+    title: str,
+    x_title: str,
+    x_eng: bool,
+    x_log: bool,
+    layout_json: str,
+    y_labels: list[str],
+) -> ChartSpec:
     try:
         d = json.loads(layout_json)
         panels = [
@@ -57,6 +70,10 @@ def _build_spec(title: str, x_title: str, x_eng: bool, x_log: bool, layout_json:
         assign = {k: (None if v is None else int(v)) for k, v in d["assign"].items()}
     except (ValueError, KeyError, TypeError):
         raise CSVParseError("面板配置无法解析")
+    # Y 轴标题留空时自动用分配到该面板的首条曲线表头填充
+    for pi, panel in enumerate(panels):
+        if not panel.y_title:
+            panel.y_title = auto_panel_y_title(pi, assign, y_labels)
     return ChartSpec(title, x_title, bool(x_eng), bool(x_log), panels, assign)
 
 
@@ -67,18 +84,12 @@ def _create_chart(store: Storage, raw: bytes, spec: ChartSpec) -> Chart:
     return store.save_chart(chart_id, spec, raw)
 
 
-def _filename_stem(name: str | None) -> str:
-    if not name:
-        return "chart"
-    return Path(name).stem or "chart"
-
-
 @app.post("/charts")
 async def create_chart(
     request: Request,
     file: UploadFile = File(...),
-    title: str = Form(...),
-    x_title: str = Form(...),
+    title: str | None = Form(None),
+    x_title: str | None = Form(None),
     x_eng: bool = Form(False),
     x_log: bool = Form(False),
     layout: str = Form(...),
@@ -87,7 +98,12 @@ async def create_chart(
     raw = await file.read()
     try:
         parsed = read_csv_bytes(raw)
-        spec = _build_spec(title, x_title, x_eng, x_log, layout)
+        auto_title, auto_x = auto_titles(file.filename, parsed)
+        resolved_title = title or auto_title
+        resolved_x_title = x_title or auto_x
+        spec = _build_spec(
+            resolved_title, resolved_x_title, x_eng, x_log, layout, parsed.y_labels
+        )
         validate_spec(spec, parsed)
     except CSVParseError as err:
         return templates.TemplateResponse(
@@ -114,10 +130,13 @@ async def create_chart_api(
     raw = await file.read()
     try:
         parsed = read_csv_bytes(raw)
-        resolved_title = title or _filename_stem(file.filename)
-        resolved_x_title = x_title or parsed.x_label
+        auto_title, auto_x = auto_titles(file.filename, parsed)
+        resolved_title = title or auto_title
+        resolved_x_title = x_title or auto_x
         if layout is not None:
-            spec = _build_spec(resolved_title, resolved_x_title, x_eng, x_log, layout)
+            spec = _build_spec(
+                resolved_title, resolved_x_title, x_eng, x_log, layout, parsed.y_labels
+            )
         else:
             spec = default_spec(parsed, resolved_title, resolved_x_title, x_eng, x_log)
         validate_spec(spec, parsed)
