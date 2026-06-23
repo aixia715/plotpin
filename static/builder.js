@@ -28,28 +28,34 @@ function render() {
     builder.innerHTML = '<p class="hint">未能读取列名，将按单面板（全部曲线）生成。</p>';
     return;
   }
-  let html = '<div class="panel-count">面板数：' +
-    '<button type="button" class="pc-dec">−</button>' +
+  let html = '<div class="panel-count"><span class="pc-label">面板数</span>' +
+    '<span class="stepper">' +
+    '<button type="button" class="pc-dec" aria-label="减少面板">−</button>' +
     '<span class="pc-val">' + panelCount + "</span>" +
-    '<button type="button" class="pc-inc">+</button></div>';
+    '<button type="button" class="pc-inc" aria-label="增加面板">+</button>' +
+    "</span></div>";
 
-  html += '<table class="assign"><thead><tr><th>曲线</th><th>分配</th></tr></thead><tbody>';
+  html += '<div class="assign">';
   for (const col of columns) {
-    html += '<tr><td>' + escapeHtml(col) + '</td><td><select data-col="' + escapeHtml(col) + '">';
+    html += '<div class="route"><span class="route-curve">' + escapeHtml(col) +
+      '</span><span class="route-arrow">→</span>' +
+      '<span class="route-sel"><select data-col="' + escapeHtml(col) + '">';
     for (let i = 0; i < panelCount; i++) {
-      html += '<option value="' + i + '">面板' + (i + 1) + "</option>";
+      html += '<option value="' + i + '">面板 ' + (i + 1) + "</option>";
     }
-    html += '<option value="hidden">不显示</option></select></td></tr>';
+    html += '<option value="hidden">不显示</option></select></span></div>';
   }
-  html += "</tbody></table>";
+  html += "</div>";
 
   html += '<div class="panel-cfgs">';
   for (let i = 0; i < panelCount; i++) {
     html += '<div class="panel-cfg" data-panel="' + i + '">' +
-      '<div class="ax">面板' + (i + 1) + ' Y 轴</div>' +
-      '<input type="text" class="p-title" placeholder="Y 轴标题">' +
-      '<label><input type="checkbox" class="p-eng" checked> 工程计数法</label>' +
-      '<label><input type="checkbox" class="p-log"> 对数坐标</label></div>';
+      '<div class="ax"><span class="pnum">面板 ' + (i + 1) + "</span> Y 轴</div>" +
+      '<input type="text" class="p-title" placeholder="Y 轴标题（如 增益 dB）">' +
+      '<div class="opt"><input type="checkbox" class="p-eng" id="p-eng-' + i +
+      '" checked><label class="lab" for="p-eng-' + i + '">工程计数法</label></div>' +
+      '<div class="opt"><input type="checkbox" class="p-log" id="p-log-' + i +
+      '"><label class="lab" for="p-log-' + i + '">对数坐标</label></div></div>';
   }
   html += "</div>";
 
