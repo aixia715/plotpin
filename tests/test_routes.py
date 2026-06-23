@@ -115,16 +115,42 @@ def test_png_render_and_cache(client, tmp_path):
     assert (tmp_path / "cache" / f"{chart_id}.png").exists()
 
 
-def test_upload_log_with_nonpositive_rejected(client):
+def test_upload_log_partial_nonpositive_now_succeeds(client):
+    # X 对数 + 含 0：自动剔除 0 行，应 303 成功(不再 400)
     layout = _layout([{"y_title": "Y", "y_eng": True, "y_log": False}], {"y": 0})
     resp = client.post(
         "/charts",
         data={"title": "T", "x_title": "X", "x_log": "on", "layout": layout},
-        files={"file": ("data.csv", b"x,y\n0,3.3\n1000,6.6\n", "text/csv")},
+        files={"file": ("data.csv", b"x,y\n0,3.3\n1000,6.6\n10000,9.9\n", "text/csv")},
+        follow_redirects=False,
+    )
+    assert resp.status_code == 303
+
+
+def test_chart_page_shows_log_warning(client):
+    # Y 对数面板 + 含 0：图表页应出现警告文案
+    layout = _layout([{"y_title": "Y", "y_eng": True, "y_log": True}], {"y": 0})
+    loc = client.post(
+        "/charts",
+        data={"title": "T", "x_title": "X", "x_eng": "on", "layout": layout},
+        files={"file": ("data.csv", b"x,y\n1000,0\n2000,6.6\n3000,9.9\n", "text/csv")},
+        follow_redirects=False,
+    ).headers["location"]
+    chart_id = loc.rsplit("/", 1)[-1]
+    page = client.get(f"/chart/{chart_id}")
+    assert "对数 Y 轴包含 ≤0 的值，已自动忽略" in page.text
+
+
+def test_upload_log_all_nonpositive_still_rejected(client):
+    # X 对数但所有 x≤0：无正数可画，仍应 400
+    layout = _layout([{"y_title": "Y", "y_eng": True, "y_log": False}], {"y": 0})
+    resp = client.post(
+        "/charts",
+        data={"title": "T", "x_title": "X", "x_log": "on", "layout": layout},
+        files={"file": ("data.csv", b"x,y\n0,3.3\n-1,6.6\n", "text/csv")},
         follow_redirects=False,
     )
     assert resp.status_code == 400
-    assert "对数" in resp.text
 
 
 def test_svg_render(client):
