@@ -49,6 +49,54 @@ class ChartSpec:
         )
 
 
+@dataclass
+class LogFilterReport:
+    x_dropped: bool = False
+    y_dropped: bool = False
+
+
+def apply_log_filter(
+    parsed: ParsedCSV, spec: ChartSpec
+) -> tuple[ParsedCSV, LogFilterReport]:
+    x = list(parsed.x)
+    ys = [list(col) for col in parsed.ys]
+    x_dropped = False
+    y_dropped = False
+
+    # 共享 X 对数轴：删除 x ≤ 0 的整行
+    if spec.x_log:
+        keep = [i for i, v in enumerate(x) if v is not None and v > 0]
+        if len(keep) != len(x):
+            x_dropped = True
+        if not keep:
+            raise CSVParseError("X 轴所有值 ≤0，无法使用对数坐标")
+        x = [x[i] for i in keep]
+        ys = [[col[i] for i in keep] for col in ys]
+
+    # 每个对数面板：分配到它的列里 ≤0 的点置 None（缺口）
+    col_index = {label: i for i, label in enumerate(parsed.y_labels)}
+    for pi, panel in enumerate(spec.panels):
+        if not panel.y_log:
+            continue
+        panel_cols = [c for c, idx in spec.assign.items() if idx == pi]
+        any_positive = False
+        for c in panel_cols:
+            col = ys[col_index[c]]
+            for j, v in enumerate(col):
+                if v is None:
+                    continue
+                if v <= 0:
+                    col[j] = None
+                    y_dropped = True
+                else:
+                    any_positive = True
+        if panel_cols and not any_positive:
+            raise CSVParseError(f"面板 {pi + 1} 所有值 ≤0，无法使用对数坐标")
+
+    filtered = ParsedCSV(parsed.x_label, x, list(parsed.y_labels), ys)
+    return filtered, LogFilterReport(x_dropped, y_dropped)
+
+
 def validate_spec(spec: ChartSpec, parsed: ParsedCSV) -> None:
     if not spec.panels:
         raise CSVParseError("至少需要一个面板")
@@ -63,12 +111,5 @@ def validate_spec(spec: ChartSpec, parsed: ParsedCSV) -> None:
     for pi in range(len(spec.panels)):
         if not any(idx == pi for idx in spec.assign.values()):
             raise CSVParseError(f"面板 {pi + 1} 没有分配任何曲线")
-    if spec.x_log and any(v <= 0 for v in parsed.x):
-        raise CSVParseError("X 轴含 ≤0 值,无法使用对数坐标")
-    col_values = dict(zip(parsed.y_labels, parsed.ys))
-    for pi, panel in enumerate(spec.panels):
-        if not panel.y_log:
-            continue
-        for col, idx in spec.assign.items():
-            if idx == pi and any(v <= 0 for v in col_values[col]):
-                raise CSVParseError(f"面板 {pi + 1} 含 ≤0 值,无法使用对数坐标")
+    # 对数轴 ≤0：部分剔除不报错，仅"全 ≤0"在此触发拒绝
+    apply_log_filter(parsed, spec)
