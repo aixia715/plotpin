@@ -15,7 +15,8 @@ class ParsedCSV:
     x_label: str
     x: list[float]
     y_labels: list[str]
-    ys: list[list[float]]
+    # 解析时为 float；经 spec.apply_log_filter 剔除对数轴 ≤0 点后，缺口位置为 None
+    ys: list[list[float | None]]
 
 
 def decode_bytes(raw: bytes) -> str:
