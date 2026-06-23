@@ -1,7 +1,7 @@
 import json
 from dataclasses import asdict, dataclass
 
-from app.parsing import CSVParseError, ParsedCSV  # noqa: F401  (CSVParseError/ParsedCSV 供 validate_spec 使用)
+from app.parsing import CSVParseError, ParsedCSV
 
 
 @dataclass
