@@ -19,8 +19,12 @@ PROMPT_DIR="$SCRIPT_DIR/triage-prompts"
 
 LABEL_FIXED="已自动修复"
 LABEL_WAITING="等待回复"
+LABEL_IGNORE="AI忽略"
 BASE_BRANCH="master"
 DRY_RUN="${DRY_RUN:-false}"
+# 仅定时（cron）自动运行时排除「AI忽略」issue；手动运行工作流（workflow_dispatch）照常处理。
+# 由工作流按 github.event_name 传入；本地直跑默认 false（不排除）。
+APPLY_IGNORE="${APPLY_IGNORE:-false}"
 PENDING_LIMIT=3   # 待人工处理的 issue 达到此数即本次不再继续，避免问题积压
 
 # 早失败：确认 opencode CLI 与必需环境变量就绪
@@ -33,6 +37,8 @@ run_opencode() { opencode run --model "$OPENCODE_MODEL" "$(cat)"; }
 
 select_issues() {
   LABEL_FIXED="$LABEL_FIXED" \
+  LABEL_IGNORE="$LABEL_IGNORE" \
+  APPLY_IGNORE="$APPLY_IGNORE" \
     bash "$SCRIPT_DIR/select-triage-issues.sh" "$@"
 }
 
