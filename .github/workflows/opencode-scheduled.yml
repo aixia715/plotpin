@@ -29,6 +29,9 @@ jobs:
       # CI 专用权限配置（放开非交互工具），不影响仓库根目录给本地使用的配置
       OPENCODE_CONFIG: ${{ github.workspace }}/.github/opencode-ci.json
       DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
+      # 仅定时（cron, event_name=schedule）运行时排除带「AI忽略」标签的 issue；
+      # 手动运行（workflow_dispatch）则照常处理被标记的 issue。
+      APPLY_IGNORE: ${{ github.event_name == 'schedule' && 'true' || 'false' }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -50,6 +53,8 @@ jobs:
             --description "opencode 已就该 issue 提问，等待人类答复" 2>/dev/null || true
           gh label create "已自动修复" --color 0E8A16 \
             --description "opencode 已为该 issue 开出修复 PR" 2>/dev/null || true
+          gh label create "AI忽略" --color D4C5F9 \
+            --description "人工标记：仅定时自动 triage 跳过该 issue；手动运行工作流或 /oc 触发不受影响" 2>/dev/null || true
 
       - name: 运行每日 triage
         run: bash scripts/opencode-triage.sh

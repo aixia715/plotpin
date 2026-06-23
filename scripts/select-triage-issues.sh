@@ -6,6 +6,9 @@
 #   select-triage-issues.sh count-pending    输出「待人工处理」issue 的条数（供 backlog 闸门）
 #
 # 分类规则（gh issue list 只列 open issue，故出现的都仍处于打开状态）：
+#   · 带「AI忽略」标签且 APPLY_IGNORE=true —— 人工标记「定时自动 triage 跳过」；完全排除，
+#     既不作候选、也不计入 pending（不占名额）。仅在定时（cron）运行时生效；手动运行工作流
+#     （workflow_dispatch）令 APPLY_IGNORE=false，则此标签不起作用、照常分类处理。
 #   · 带「已自动修复」标签 —— 已开过修复 PR、仍等人类审阅/合并，算作「未处理（pending）」；不作候选。
 #   · 最后一条评论作者是机器人 —— 我们（定时/按需任一流程）已回复、正在等人类答复，
 #     算作「未处理（pending）」；不作候选、不占当天名额。不依赖「等待回复」标签：/oc 等
@@ -14,11 +17,16 @@
 #
 # 候选输出（stdout）：JSON 数组 [{"number":N,"title":"...","body":"..."}]，按创建时间升序。
 # 依赖：gh（已登录，env GH_TOKEN）、jq。
-# 可选环境变量：LABEL_FIXED 覆盖标签名。
+# 可选环境变量：
+#   LABEL_FIXED    覆盖「已自动修复」标签名。
+#   LABEL_IGNORE   覆盖「AI忽略」标签名。
+#   APPLY_IGNORE   "true" 时排除带「AI忽略」标签的 issue（定时运行）；否则忽略该标签（手动运行）。
 set -euo pipefail
 
 MODE="${1:-candidates}"          # candidates | count-pending
 LABEL_FIXED="${LABEL_FIXED:-已自动修复}"
+LABEL_IGNORE="${LABEL_IGNORE:-AI忽略}"
+APPLY_IGNORE="${APPLY_IGNORE:-false}"
 
 # 逐条诊断日志走 stderr（stdout 是被调用方 $(...) 捕获的 JSON/数字，不能混入）。
 # 只在 candidates 这一遍打印：count-pending 遍同样遍历全部 issue，若两遍都打会重复刷屏。
@@ -45,6 +53,13 @@ pending=0
 while IFS= read -r row; do
   number="$(jq -r '.number' <<<"$row")"
   labels="$(jq -r '.labels[].name' <<<"$row")"
+
+  # 「AI忽略」：人工标记「定时自动 triage 跳过」。仅定时运行（APPLY_IGNORE=true）时生效，
+  # 完全排除——既不作候选、也不计入 pending（不占名额）。手动运行工作流不受影响。
+  if [ "$APPLY_IGNORE" = "true" ] && grep -qxF "$LABEL_IGNORE" <<<"$labels"; then
+    log_pick "  预筛跳过 #$number（带「$LABEL_IGNORE」标签，定时自动 triage 跳过）"
+    continue
+  fi
 
   # 已自动修复但 issue 仍开着（PR 待审/合并）→ 未处理（pending），不作候选
   if grep -qxF "$LABEL_FIXED" <<<"$labels"; then
