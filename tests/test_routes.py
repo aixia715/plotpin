@@ -153,3 +153,77 @@ def test_index_thumbnail_only_when_cached(client):
     assert f'src="/chart/{chart_id}.png"' not in client.get("/").text
     client.get(f"/chart/{chart_id}.png")
     assert f'src="/chart/{chart_id}.png"' in client.get("/").text
+
+
+def _api_upload(client, csv_text, **data):
+    return client.post(
+        "/api/charts",
+        data=data,
+        files={"file": ("measure.csv", csv_text.encode("utf-8"), "text/csv")},
+    )
+
+
+def test_api_minimal_returns_absolute_urls(client):
+    resp = _api_upload(client, "freq,gain\n1000,3.3\n2000,6.6\n")
+    assert resp.status_code == 201
+    body = resp.json()
+    cid = body["id"]
+    assert cid
+    assert body["page_url"] == f"http://testserver/chart/{cid}"
+    assert body["png_url"] == f"http://testserver/chart/{cid}.png"
+    assert body["svg_url"] == f"http://testserver/chart/{cid}.svg"
+    assert body["csv_url"] == f"http://testserver/chart/{cid}.csv"
+    assert body["created_at"]
+    # 返回的 URL 可再次命中
+    assert client.get(f"/chart/{cid}").status_code == 200
+    assert client.get(f"/chart/{cid}.csv").content == b"freq,gain\n1000,3.3\n2000,6.6\n"
+
+
+def test_api_default_titles_from_csv_and_filename(client):
+    # 标题默认取文件名去扩展名 measure；x 轴默认取首列名 freq；y_title 取首 Y 列名
+    cid = _api_upload(client, "freq,gain\n1000,3.3\n2000,6.6\n").json()["id"]
+    store = app.dependency_overrides[get_storage]()  # fixture 注入的 Storage
+    chart = store.get_chart(cid)
+    assert chart.spec.title == "measure"
+    assert chart.spec.x_title == "freq"
+    assert chart.spec.panels[0].y_title == "gain"
+    assert chart.spec.assign == {"gain": 0}
+
+
+def test_api_explicit_title_and_multi_panel_layout(client):
+    layout = _layout(
+        [{"y_title": "上", "y_eng": True, "y_log": False},
+         {"y_title": "下", "y_eng": False, "y_log": False}],
+        {"a": 0, "b": 1},
+    )
+    resp = _api_upload(client, "x,a,b\n1000,3.3,0.1\n2000,6.6,0.2\n",
+                       title="我的图", x_title="时间", layout=layout)
+    assert resp.status_code == 201
+    cid = resp.json()["id"]
+    store = app.dependency_overrides[get_storage]()
+    chart = store.get_chart(cid)
+    assert chart.spec.title == "我的图" and chart.spec.x_title == "时间"
+    assert len(chart.spec.panels) == 2
+
+
+def test_api_bad_cell_returns_400_json(client):
+    resp = _api_upload(client, "x,y\n1000,47x\n")
+    assert resp.status_code == 400
+    assert "47x" in resp.json()["detail"]
+
+
+def test_api_bad_layout_returns_400_json(client):
+    resp = _api_upload(client, "x,y\n1000,3.3\n2000,6.6\n", layout="{not json")
+    assert resp.status_code == 400
+    assert resp.json()["detail"]
+
+
+def test_api_log_with_nonpositive_returns_400(client):
+    resp = _api_upload(client, "x,y\n0,3.3\n1000,6.6\n", x_log="on")
+    assert resp.status_code == 400
+    assert "对数" in resp.json()["detail"]
+
+
+def test_api_missing_file_returns_422(client):
+    resp = client.post("/api/charts", data={"title": "T"})
+    assert resp.status_code == 422
