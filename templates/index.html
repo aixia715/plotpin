@@ -42,10 +42,6 @@
               <label>X 轴标题</label>
               <input type="text" name="x_title" required placeholder="频率 (Hz)">
             </div>
-            <div class="field">
-              <label>Y 轴标题</label>
-              <input type="text" name="y_title" required placeholder="增益 (dB)">
-            </div>
             <div class="axes">
               <div class="axiscard">
                 <div class="ax">X 轴</div>
@@ -59,18 +55,14 @@
                   <label class="lab" for="x_log">对数坐标</label>
                 </div>
               </div>
-              <div class="axiscard">
-                <div class="ax">Y 轴</div>
-                <div class="opt">
-                  <input type="checkbox" name="y_eng" id="y_eng" checked>
-                  <label class="lab" for="y_eng">工程计数法</label>
-                  <span class="ex">0.1→<b>100m</b></span>
-                </div>
-                <div class="opt">
-                  <input type="checkbox" name="y_log" id="y_log">
-                  <label class="lab" for="y_log">对数坐标</label>
-                </div>
+            </div>
+            <div class="field">
+              <div class="ax">面板分配</div>
+              <div id="builder" class="builder">
+                <!-- builder.js 注入：面板数 +/-、每曲线下拉、每面板 Y 配置 -->
+                <p class="hint" id="builder-hint">选择 CSV 文件后，这里可分配每条曲线到面板。</p>
               </div>
+              <input type="hidden" name="layout" id="layout">
             </div>
           </div>
           <div class="m-foot">
@@ -108,7 +100,7 @@
 
   <footer>PlotPin · 局域网自部署 · 链接永久不变</footer>
 </div>
-<script src="/static/upload.js"></script>
+<script src="/static/builder.js"></script>
 <script src="/static/localtime.js"></script>
 </body>
 </html>
