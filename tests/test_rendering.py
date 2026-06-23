@@ -1,8 +1,13 @@
+import io
 import math
 
 from app.parsing import ParsedCSV
 from app.rendering import build_plotly_spec, render_static
 from app.spec import ChartSpec, PanelSpec
+
+# matplotlib 默认网格线灰 (#b0b0b0 = RGB 176,176,176)，用于断言静态图带网格
+_GRID_GRAY_HEX = "#b0b0b0"
+_GRID_GRAY_RGB = (176, 176, 176)
 
 
 def _sample() -> ParsedCSV:
@@ -138,3 +143,31 @@ def test_render_static_with_gaps_does_not_crash():
     spec = ChartSpec("T", "X", False, False, [PanelSpec("Y", False, True)], {"gain": 0})
     data = render_static(parsed, spec, "png")
     assert data[:8] == b"\x89PNG\r\n\x1a\n"
+
+
+def test_render_svg_has_grid_lines():
+    # PNG/SVG 静态图必须带网格；matplotlib 网格线默认用 #b0b0b0 灰
+    data = render_static(_sample(), _one_panel(x_eng=True, y_eng=False), "svg")
+    text = data.decode("utf-8", errors="replace")
+    assert _GRID_GRAY_HEX in text
+
+
+def test_render_png_has_grid_lines():
+    # PNG 为二进制，用 PIL 解码后统计网格灰像素，确认网格确实画进位图
+    import numpy as np
+    from PIL import Image
+    data = render_static(_sample(), _one_panel(x_eng=True, y_eng=False), "png")
+    img = np.asarray(Image.open(io.BytesIO(data)).convert("RGB"))
+    gray = int(np.sum(np.all(img == _GRID_GRAY_RGB, axis=-1)))
+    assert gray > 100  # 网格灰像素应明显存在（无网格时仅个位数抗锯齿噪点）
+
+
+def test_render_svg_two_panels_both_have_grid():
+    # 多面板时每个面板都应带网格
+    spec = ChartSpec("T", "X", True, False,
+                     [PanelSpec("上", True, False), PanelSpec("下", True, True)],
+                     {"gain": 0, "phase": 1})
+    data = render_static(_sample(), spec, "svg")
+    text = data.decode("utf-8", errors="replace")
+    # 两个面板各有 X/Y 方向网格，网格灰样式应出现多次
+    assert text.count(_GRID_GRAY_HEX) >= 4
