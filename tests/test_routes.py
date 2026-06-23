@@ -76,6 +76,27 @@ def test_chart_page_and_listing(client):
     assert chart_id in client.get("/").text
 
 
+def test_chart_page_escapes_script_in_title(client):
+    # 标题含 </script> 不得破坏 spec script 块(script 上下文 XSS / 永久链接损坏)
+    layout = _layout([{"y_title": "Y", "y_eng": True, "y_log": False}], {"y": 0})
+    chart_id = client.post(
+        "/charts",
+        data={
+            "title": "</script><script>alert(1)</script>",
+            "x_title": "X", "x_eng": "on", "layout": layout,
+        },
+        files={"file": ("d.csv", b"x,y\n1000,3.3\n2000,6.6\n", "text/csv")},
+        follow_redirects=False,
+    ).headers["location"].rsplit("/", 1)[-1]
+    page = client.get(f"/chart/{chart_id}").text
+    # 取 spec 块内容:从 id="spec" 后的 > 到第一个 </script>
+    start = page.index('id="spec"')
+    content_start = page.index(">", start) + 1
+    content = page[content_start:page.index("</script>", content_start)]
+    # 注入的 </script> 必须被转义,spec 块仍是完整可解析 JSON,标题原样还原
+    assert json.loads(content)["layout"]["title"]["text"] == "</script><script>alert(1)</script>"
+
+
 def test_chart_not_found(client):
     assert client.get("/chart/missing").status_code == 404
 

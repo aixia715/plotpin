@@ -122,7 +122,8 @@ def chart_page(chart_id: str, request: Request, store: Storage = Depends(get_sto
     return templates.TemplateResponse(
         request,
         "chart.html",
-        {"chart": chart, "spec_json": json.dumps(spec)},
+        # 传 dict,由模板 `| tojson` 做 script 上下文安全转义(转义 <>& 防 </script> 破坏块)
+        {"chart": chart, "spec": spec},
     )
 
 
