@@ -239,6 +239,12 @@ def test_filename_stem_handles_missing_or_empty():
     assert filename_stem(".gitignore") == "gitignore"
 
 
+def test_filename_stem_keeps_multiple_leading_dots_with_extension():
+    # lstrip(".") 误伤修正：有扩展名时不剥前导点
+    assert filename_stem("..hidden.csv") == "..hidden"
+    assert filename_stem(".gitignore.csv") == ".gitignore"
+
+
 def test_auto_titles_from_filename_and_header():
     parsed = ParsedCSV("freq", [1.0], ["gain"], [[1.0]])
     assert auto_titles("measure.csv", parsed) == ("measure", "freq")
@@ -260,3 +266,27 @@ def test_auto_panel_y_title_empty_panel_fallback():
     assign = {"gain": 0, "phase": None}
     # 面板 1 无曲线分配 -> 兜底 "Y"
     assert auto_panel_y_title(1, assign, ["gain", "phase"]) == "Y"
+
+
+def test_fill_empty_panel_y_titles_fills_blanks_keeps_explicit():
+    from app.spec import fill_empty_panel_y_titles
+    spec = ChartSpec(
+        "T", "X", True, False,
+        [PanelSpec("", True, False), PanelSpec("相位", False, True)],
+        {"gain": 0, "phase": 1, "noise": 1},
+    )
+    fill_empty_panel_y_titles(spec, ["gain", "phase", "noise"])
+    assert spec.panels[0].y_title == "gain"   # 空白被首条曲线表头填充
+    assert spec.panels[1].y_title == "相位"    # 显式提供，不覆盖
+
+
+def test_fill_empty_panel_y_titles_empty_panel_falls_back_to_Y():
+    from app.spec import fill_empty_panel_y_titles
+    spec = ChartSpec(
+        "T", "X", True, False,
+        [PanelSpec("", True, False), PanelSpec("", False, False)],
+        {"gain": 0, "phase": 0},  # 面板 1 无曲线分配
+    )
+    fill_empty_panel_y_titles(spec, ["gain", "phase"])
+    assert spec.panels[0].y_title == "gain"
+    assert spec.panels[1].y_title == "Y"

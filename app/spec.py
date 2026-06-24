@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import json
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -6,10 +8,18 @@ from app.parsing import CSVParseError, ParsedCSV
 
 
 def filename_stem(name: str | None) -> str:
-    """从文件名取不含扩展名的主名；缺失或为空时兜底返回 `chart`。"""
+    """从文件名取不含扩展名的主名；缺失或为空时兜底返回 `chart`。
+
+    仅对「无扩展名且以前导点开头」的 dotfile（如 `.gitignore`）剥掉那
+    单个前导点；有扩展名的文件名（如 `..hidden.csv`）原样保留其主名，
+    不用 `lstrip` 误伤多个前导点。
+    """
     if not name:
         return "chart"
-    stem = Path(name).stem.lstrip(".")
+    p = Path(name)
+    stem = p.stem
+    if not p.suffix and stem.startswith("."):
+        stem = stem[1:]
     return stem or "chart"
 
 
@@ -26,6 +36,17 @@ def auto_panel_y_title(
         if assign.get(label) == panel_index:
             return label
     return "Y"
+
+
+def fill_empty_panel_y_titles(spec: ChartSpec, y_labels: list[str]) -> None:
+    """遍历 `spec.panels`，把留空的 Y 轴标题用分配到该面板的首条曲线表头填充。
+
+    原地修改；已有标题不被覆盖。把这段「按需兜底」编排放在纯逻辑层集中
+    测试，而非塞进 `main.py` 路由层。
+    """
+    for pi, panel in enumerate(spec.panels):
+        if not panel.y_title:
+            panel.y_title = auto_panel_y_title(pi, spec.assign, y_labels)
 
 
 @dataclass

@@ -28,15 +28,20 @@ function readHeader(file) {
 function filenameStem(name) {
   if (!name) return "";
   const base = name.split("/").pop().split("\\").pop();
-  return base.replace(/\.[^.]*$/, "") || "";
+  // 与后端 app.spec.filename_stem 对齐：无扩展名的 dotfile 只剥一个前导点，
+  // 有扩展名的（如 ..hidden.csv）原样保留主名。
+  const dot = base.lastIndexOf(".");
+  if (dot === 0) return base.slice(1) || "";        // 前导点 dotfile: .gitignore -> gitignore
+  if (dot > 0) return base.slice(0, dot) || "";     // 有扩展名: measure.csv -> measure
+  return base || "";                                // 无点
 }
 
 function defaultPanelTitle(pi) {
-  // 面板 Y 轴默认标题：取分配到该面板的首条曲线表头
-  const selects = builder.querySelectorAll("select[data-col]");
-  for (const sel of selects) {
-    if (parseInt(sel.value, 10) === pi) return sel.dataset.col;
-  }
+  // 面板 Y 轴默认标题：取分配到该面板的首条曲线表头。
+  // 默认分配关系 = 所有 Y 列进面板 0（与下拉框渲染时默认选中的第一个选项一致），
+  // 直接用内存里的 columns 计算，不去查 DOM——避免调用发生在
+  // builder.innerHTML = html 之前、读到空集合只能兜底成 "Y"。
+  if (pi === 0 && columns.length) return columns[0];
   return "Y";
 }
 

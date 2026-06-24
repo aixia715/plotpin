@@ -12,9 +12,9 @@ from app.rendering import build_plotly_spec, render_static
 from app.spec import (
     ChartSpec,
     PanelSpec,
-    auto_panel_y_title,
     auto_titles,
     default_spec,
+    fill_empty_panel_y_titles,
     validate_spec,
 )
 from app.storage import Chart, Storage
@@ -70,11 +70,10 @@ def _build_spec(
         assign = {k: (None if v is None else int(v)) for k, v in d["assign"].items()}
     except (ValueError, KeyError, TypeError):
         raise CSVParseError("面板配置无法解析")
-    # Y 轴标题留空时自动用分配到该面板的首条曲线表头填充
-    for pi, panel in enumerate(panels):
-        if not panel.y_title:
-            panel.y_title = auto_panel_y_title(pi, assign, y_labels)
-    return ChartSpec(title, x_title, bool(x_eng), bool(x_log), panels, assign)
+    spec = ChartSpec(title, x_title, bool(x_eng), bool(x_log), panels, assign)
+    # Y 轴标题留空时自动用分配到该面板的首条曲线表头填充（逻辑见 app.spec）
+    fill_empty_panel_y_titles(spec, y_labels)
+    return spec
 
 
 def _create_chart(store: Storage, raw: bytes, spec: ChartSpec) -> Chart:
