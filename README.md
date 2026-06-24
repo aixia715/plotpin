@@ -58,7 +58,7 @@ pytest -q
 - **第一列 = X**，**第二列及以后 = Y**（可多列）
 - 数值支持小数与科学计数法（如 `1.5e6`），不支持 SI 词头（工程计数法仅用于显示）
 - 编码优先 UTF-8，自动兜底 GBK
-- 启用对数坐标时对应轴的所有值必须 > 0
+- 启用对数坐标时，该轴上 ≤0 的数据点会被自动剔除（共享 X 轴删除整行，Y 轴对数面板将该点置为缺口）；仅当该轴 / 面板的值**全部** ≤0 时才拒绝生成
 
 示例：
 
@@ -75,7 +75,8 @@ pytest -q
 app/
   eng_notation.py   # 坐标轴工程计数法显示与刻度计算（纯逻辑）
   parsing.py        # CSV 解析、数值校验、解析报告（纯逻辑）
-  rendering.py      # 构建 Plotly spec、matplotlib 静态出图（纯逻辑）
+  spec.py           # ChartSpec/PanelSpec 多面板配置、序列化与 validate_spec 校验（纯逻辑）
+  rendering.py      # 吃 ChartSpec 构建多面板 Plotly spec、matplotlib 静态出图（纯逻辑）
   ids.py            # 稳定分享 id 生成（纯逻辑）
   storage.py        # SQLite 读写、建表（数据访问）
   main.py           # FastAPI 装配与薄路由
@@ -87,7 +88,7 @@ Dockerfile / docker-compose.yml
 
 ## 架构
 
-三层：**纯逻辑**（零 Web/DB 依赖，测试重点）→ **数据访问层** → **薄路由**（收请求 → 调逻辑 → 渲染模板）。依赖只能从外往里指（路由 → 数据 / 逻辑，逻辑层内部 `rendering → parsing → eng_notation`），不得反向依赖。新业务逻辑优先放纯逻辑层并配单测，保持 `app/main.py` 薄。详见 `CLAUDE.md`。
+三层：**纯逻辑**（零 Web/DB 依赖，测试重点）→ **数据访问层** → **薄路由**（收请求 → 调逻辑 → 渲染模板）。依赖只能从外往里指（路由 → 数据 / 逻辑，逻辑层内部 `rendering → spec → parsing → eng_notation`），不得反向依赖。新业务逻辑优先放纯逻辑层并配单测，保持 `app/main.py` 薄。详见 `CLAUDE.md`。
 
 ## 配置
 
