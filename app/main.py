@@ -1,5 +1,6 @@
 import json
 import os
+import sys
 
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
@@ -8,7 +9,7 @@ from fastapi.templating import Jinja2Templates
 
 from app.ids import new_id
 from app.parsing import CSVParseError, read_csv_bytes
-from app.rendering import build_plotly_spec, render_static
+from app.rendering import build_plotly_spec, render_static, render_thumb
 from app.spec import (
     ChartSpec,
     PanelSpec,
@@ -42,7 +43,9 @@ def _index_items(store: Storage) -> list[dict]:
     return [
         {
             "chart": c,
-            "thumb": f"/chart/{c.id}.png" if store.cache_path(c.id, "png").exists() else None,
+            "thumb": f"/chart/{c.id}/thumb.png"
+            if store.cache_path(c.id, "thumb.png").exists()
+            else None,
         }
         for c in store.list_charts()
     ]
@@ -76,11 +79,23 @@ def _build_spec(
     return spec
 
 
-def _create_chart(store: Storage, raw: bytes, spec: ChartSpec) -> Chart:
+def _pregenerate_thumb(store: Storage, chart_id: str, parsed, spec: ChartSpec) -> None:
+    # issue 5: 上传后立即落盘小尺寸缩略图,使首页缩略图不再空白。
+    # 用 render_thumb 生成小尺寸低 dpi 的 PNG,显著降低小带宽下首页拉取成本。
+    # 预生成失败不阻断上传——首页优雅降级为占位框;失败时记录到 stderr 留痕。
+    try:
+        store.cache_path(chart_id, "thumb.png").write_bytes(render_thumb(parsed, spec))
+    except Exception as err:
+        print(f"[plotpin] 预生成缩略图失败 chart={chart_id}: {err!r}", file=sys.stderr)
+
+
+def _create_chart(store: Storage, raw: bytes, parsed, spec: ChartSpec) -> Chart:
     chart_id = new_id()
     while store.exists(chart_id):
         chart_id = new_id()
-    return store.save_chart(chart_id, spec, raw)
+    chart = store.save_chart(chart_id, spec, raw)
+    _pregenerate_thumb(store, chart_id, parsed, spec)
+    return chart
 
 
 @app.post("/charts")
@@ -111,7 +126,7 @@ async def create_chart(
             {"items": _index_items(store), "error": str(err)},
             status_code=400,
         )
-    chart = _create_chart(store, raw, spec)
+    chart = _create_chart(store, raw, parsed, spec)
     return RedirectResponse(url=f"/chart/{chart.id}", status_code=303)
 
 
@@ -141,7 +156,7 @@ async def create_chart_api(
         validate_spec(spec, parsed)
     except CSVParseError as err:
         raise HTTPException(status_code=400, detail=str(err))
-    chart = _create_chart(store, raw, spec)
+    chart = _create_chart(store, raw, parsed, spec)
     return JSONResponse(
         status_code=201,
         content={
@@ -157,15 +172,20 @@ async def create_chart_api(
 
 @app.get("/chart/{chart_id}.png")
 def chart_png(chart_id: str, store: Storage = Depends(get_storage)):
-    return _image(chart_id, "png", "image/png", store)
+    return _image(chart_id, "png", "image/png", store, lambda p, s: render_static(p, s, "png"))
 
 
 @app.get("/chart/{chart_id}.svg")
 def chart_svg(chart_id: str, store: Storage = Depends(get_storage)):
-    return _image(chart_id, "svg", "image/svg+xml", store)
+    return _image(chart_id, "svg", "image/svg+xml", store, lambda p, s: render_static(p, s, "svg"))
 
 
-def _image(chart_id: str, ext: str, media_type: str, store: Storage) -> Response:
+@app.get("/chart/{chart_id}/thumb.png")
+def chart_thumb(chart_id: str, store: Storage = Depends(get_storage)):
+    return _image(chart_id, "thumb.png", "image/png", store, render_thumb)
+
+
+def _image(chart_id: str, ext: str, media_type: str, store: Storage, render) -> Response:
     chart = store.get_chart(chart_id)
     if chart is None:
         return _not_found_plain()
@@ -173,7 +193,7 @@ def _image(chart_id: str, ext: str, media_type: str, store: Storage) -> Response
     if cache.exists():
         return Response(content=cache.read_bytes(), media_type=media_type)
     parsed = read_csv_bytes(store.read_csv(chart_id))
-    data = render_static(parsed, chart.spec, ext)
+    data = render(parsed, chart.spec)
     cache.write_bytes(data)
     return Response(content=data, media_type=media_type)
 

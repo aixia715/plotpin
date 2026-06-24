@@ -2,7 +2,7 @@ import io
 import math
 
 from app.parsing import ParsedCSV
-from app.rendering import build_plotly_spec, render_static
+from app.rendering import build_plotly_spec, render_static, render_thumb
 from app.spec import ChartSpec, PanelSpec
 
 # matplotlib 默认网格线灰 (#b0b0b0 = RGB 176,176,176)，用于断言静态图带网格
@@ -73,6 +73,15 @@ def test_build_plotly_spec_hidden_curve_excluded():
 def test_render_png_returns_png_bytes():
     data = render_static(_sample(), _one_panel(x_eng=True, y_eng=True), "png")
     assert data[:8] == b"\x89PNG\r\n\x1a\n"
+
+
+def test_render_thumb_is_smaller_png():
+    # 首页缩略图:合法 PNG,但字节数显著小于全图 PNG(降低小带宽下的拉取成本)
+    spec = _one_panel(x_eng=True, y_eng=True)
+    thumb = render_thumb(_sample(), spec)
+    full = render_static(_sample(), spec, "png")
+    assert thumb[:8] == b"\x89PNG\r\n\x1a\n"
+    assert len(thumb) < len(full) / 2
 
 
 def test_render_svg_returns_svg():
