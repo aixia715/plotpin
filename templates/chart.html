@@ -4,6 +4,20 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{{ chart.title }} - PlotPin</title>
+  <script>
+    // 防闪烁：在样式加载前先定 data-theme。localStorage 优先，其次系统偏好。
+    (function () {
+      try {
+        var t = localStorage.getItem("plotpin-theme");
+        if (t !== "light" && t !== "dark") {
+          t = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+        }
+        document.documentElement.dataset.theme = t;
+      } catch (_) {
+        document.documentElement.dataset.theme = "light";
+      }
+    })();
+  </script>
   <link rel="stylesheet" href="/static/app.css">
   <script src="/static/plotly.min.js"></script>
 </head>
@@ -14,7 +28,13 @@
   {% endif %}
   <div class="topbar">
     <a class="back" href="/">← 返回记录</a>
-    <div class="brand">Plot<span class="pin">Pin</span></div>
+    <div class="topbar-right">
+      <div class="brand">Plot<span class="pin">Pin</span></div>
+      <button class="theme-toggle" type="button" data-theme-toggle aria-label="切换夜间模式">
+        <span class="theme-toggle-icon">☾</span>
+        <span class="theme-toggle-label">夜间</span>
+      </button>
+    </div>
   </div>
 
   <div class="titlewrap">
@@ -58,6 +78,13 @@
   const panelN = Object.keys(spec.layout).filter((k) => /^yaxis\d*$/.test(k)).length || 1;
   document.getElementById("plot").style.height = Math.max(360, panelN * 300) + "px";
   Plotly.newPlot("plot", spec.data, spec.layout, {responsive: true});
+  // 夜间模式联动：DOMContentLoaded 后 theme.js 已就绪，按当前主题着色；切换时 relayout。
+  function applyPlotTheme() {
+    const theme = document.documentElement.dataset.theme === "dark" ? "dark" : "light";
+    Plotly.relayout("plot", plotlyThemePatch(theme, panelN));
+  }
+  document.addEventListener("DOMContentLoaded", applyPlotTheme);
+  document.addEventListener("plotpin:theme-change", applyPlotTheme);
   const base = location.origin + "/chart/{{ chart.id }}";
   document.getElementById("link-page").textContent = base;
   document.getElementById("link-png").textContent = base + ".png";
@@ -113,5 +140,6 @@
 </script>
 {% endif %}
 <script src="/static/localtime.js"></script>
+<script src="/static/theme.js"></script>
 </body>
 </html>
