@@ -36,4 +36,4 @@ jobs:
           OPENCODE_CONFIG: ${{ github.workspace }}/.github/opencode-ci.json
         with:
           model: ${{ vars.OPENCODE_MODEL }}
-          prompt: "审阅这个 PR 的改动：聚焦正确性、潜在 bug、与本仓库约定（见 CLAUDE.md）的一致性。用中文把结论作为评论发表。"
+          prompt: "审阅这个 PR 的改动：聚焦正确性、潜在 bug、与本仓库约定（见 CLAUDE.md）的一致性；并检查 README.md 等文档是否需随本次源码变更同步更新（如新增/变更的路由、配置项、行为、CSV/对数轴约定等），若文档已过时或缺失请指出。用中文把结论作为评论发表。"
