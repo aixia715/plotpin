@@ -280,3 +280,38 @@ def test_api_log_all_nonpositive_returns_400(client):
 def test_api_missing_file_returns_422(client):
     resp = client.post("/api/charts", data={"title": "T"})
     assert resp.status_code == 422
+
+
+def test_web_form_auto_titles_when_omitted(client):
+    # 表单省略 title / x_title 时：自动取文件名主名与首列表头
+    layout = _layout(
+        [{"y_title": "", "y_eng": True, "y_log": False}], {"gain": 0}
+    )
+    loc = client.post(
+        "/charts",
+        data={"layout": layout},
+        files={"file": ("measure.csv", b"freq,gain\n1000,3.3\n2000,6.6\n", "text/csv")},
+        follow_redirects=False,
+    ).headers["location"]
+    cid = loc.rsplit("/", 1)[-1]
+    store = app.dependency_overrides[get_storage]()
+    spec = store.get_chart(cid).spec
+    assert spec.title == "measure"
+    assert spec.x_title == "freq"
+    # 空白 Y 轴标题自动用分配到面板 0 的表头 gain
+    assert spec.panels[0].y_title == "gain"
+
+
+def test_web_form_explicit_titles_override_auto(client):
+    layout = _layout([{"y_title": "增益", "y_eng": True, "y_log": False}], {"y": 0})
+    loc = client.post(
+        "/charts",
+        data={"title": "我的图", "x_title": "频率", "layout": layout},
+        files={"file": ("measure.csv", b"x,y\n1000,3.3\n2000,6.6\n", "text/csv")},
+        follow_redirects=False,
+    ).headers["location"]
+    cid = loc.rsplit("/", 1)[-1]
+    store = app.dependency_overrides[get_storage]()
+    spec = store.get_chart(cid).spec
+    assert spec.title == "我的图" and spec.x_title == "频率"
+    assert spec.panels[0].y_title == "增益"

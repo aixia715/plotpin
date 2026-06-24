@@ -1,7 +1,15 @@
 import pytest
 
 from app.parsing import CSVParseError, ParsedCSV
-from app.spec import ChartSpec, PanelSpec, default_spec, validate_spec
+from app.spec import (
+    ChartSpec,
+    PanelSpec,
+    auto_panel_y_title,
+    auto_titles,
+    default_spec,
+    filename_stem,
+    validate_spec,
+)
 
 
 def _spec() -> ChartSpec:
@@ -216,3 +224,69 @@ def test_default_spec_result_passes_validation():
     parsed = _parsed_with_labels(["a", "b"])
     spec = default_spec(parsed, title="t", x_title="x")
     validate_spec(spec, parsed)  # 不抛异常即通过
+
+
+def test_filename_stem_strips_extension():
+    assert filename_stem("measure.csv") == "measure"
+    assert filename_stem("a.b.csv") == "a.b"
+    assert filename_stem("/tmp/我的 数据.XLSX") == "我的 数据"
+
+
+def test_filename_stem_handles_missing_or_empty():
+    assert filename_stem(None) == "chart"
+    assert filename_stem("") == "chart"
+    assert filename_stem(".csv") == "csv"  # 视作无扩展名主名
+    assert filename_stem(".gitignore") == "gitignore"
+
+
+def test_filename_stem_keeps_multiple_leading_dots_with_extension():
+    # lstrip(".") 误伤修正：有扩展名时不剥前导点
+    assert filename_stem("..hidden.csv") == "..hidden"
+    assert filename_stem(".gitignore.csv") == ".gitignore"
+
+
+def test_auto_titles_from_filename_and_header():
+    parsed = ParsedCSV("freq", [1.0], ["gain"], [[1.0]])
+    assert auto_titles("measure.csv", parsed) == ("measure", "freq")
+
+
+def test_auto_titles_missing_filename_falls_back():
+    parsed = ParsedCSV("时间", [1.0], ["y"], [[1.0]])
+    assert auto_titles(None, parsed) == ("chart", "时间")
+
+
+def test_auto_panel_y_title_uses_first_assigned_header():
+    assign = {"gain": 0, "phase": 1, "noise": 1}
+    y_labels = ["gain", "phase", "noise"]
+    assert auto_panel_y_title(0, assign, y_labels) == "gain"
+    assert auto_panel_y_title(1, assign, y_labels) == "phase"
+
+
+def test_auto_panel_y_title_empty_panel_fallback():
+    assign = {"gain": 0, "phase": None}
+    # 面板 1 无曲线分配 -> 兜底 "Y"
+    assert auto_panel_y_title(1, assign, ["gain", "phase"]) == "Y"
+
+
+def test_fill_empty_panel_y_titles_fills_blanks_keeps_explicit():
+    from app.spec import fill_empty_panel_y_titles
+    spec = ChartSpec(
+        "T", "X", True, False,
+        [PanelSpec("", True, False), PanelSpec("相位", False, True)],
+        {"gain": 0, "phase": 1, "noise": 1},
+    )
+    fill_empty_panel_y_titles(spec, ["gain", "phase", "noise"])
+    assert spec.panels[0].y_title == "gain"   # 空白被首条曲线表头填充
+    assert spec.panels[1].y_title == "相位"    # 显式提供，不覆盖
+
+
+def test_fill_empty_panel_y_titles_empty_panel_falls_back_to_Y():
+    from app.spec import fill_empty_panel_y_titles
+    spec = ChartSpec(
+        "T", "X", True, False,
+        [PanelSpec("", True, False), PanelSpec("", False, False)],
+        {"gain": 0, "phase": 0},  # 面板 1 无曲线分配
+    )
+    fill_empty_panel_y_titles(spec, ["gain", "phase"])
+    assert spec.panels[0].y_title == "gain"
+    assert spec.panels[1].y_title == "Y"
