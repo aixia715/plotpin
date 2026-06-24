@@ -174,11 +174,18 @@ def test_csv_download_not_found(client):
     assert client.get("/chart/missing.csv").status_code == 404
 
 
-def test_index_thumbnail_only_when_cached(client):
+def test_index_thumbnail_pregenerated_on_upload(client, tmp_path):
+    # issue 5: 上传成功后立即预生成 PNG,首页缩略图不再空白
     chart_id = _upload(client, "x,y\n1000,3.3\n2000,6.6\n").headers["location"].rsplit("/", 1)[-1]
-    assert f'src="/chart/{chart_id}.png"' not in client.get("/").text
-    client.get(f"/chart/{chart_id}.png")
+    assert (tmp_path / "cache" / f"{chart_id}.png").exists()
     assert f'src="/chart/{chart_id}.png"' in client.get("/").text
+
+
+def test_api_thumbnail_pregenerated_on_upload(client, tmp_path):
+    # API 上传同样应预生成缩略图,首页可见
+    cid = _api_upload(client, "freq,gain\n1000,3.3\n2000,6.6\n").json()["id"]
+    assert (tmp_path / "cache" / f"{cid}.png").exists()
+    assert f'src="/chart/{cid}.png"' in client.get("/").text
 
 
 def _api_upload(client, csv_text, **data):

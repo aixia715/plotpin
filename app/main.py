@@ -60,11 +60,23 @@ def _build_spec(title: str, x_title: str, x_eng: bool, x_log: bool, layout_json:
     return ChartSpec(title, x_title, bool(x_eng), bool(x_log), panels, assign)
 
 
-def _create_chart(store: Storage, raw: bytes, spec: ChartSpec) -> Chart:
+def _pregenerate_thumb(store: Storage, chart_id: str, parsed, spec: ChartSpec) -> None:
+    # issue 5: 上传后立即落盘 PNG,使首页缩略图不再空白。
+    # 缩略图直接复用全图 PNG(模板按 64x34 缩放显示)。
+    # 预生成失败不阻断上传——首页优雅降级为占位框。
+    try:
+        store.cache_path(chart_id, "png").write_bytes(render_static(parsed, spec, "png"))
+    except Exception:
+        pass
+
+
+def _create_chart(store: Storage, raw: bytes, parsed, spec: ChartSpec) -> Chart:
     chart_id = new_id()
     while store.exists(chart_id):
         chart_id = new_id()
-    return store.save_chart(chart_id, spec, raw)
+    chart = store.save_chart(chart_id, spec, raw)
+    _pregenerate_thumb(store, chart_id, parsed, spec)
+    return chart
 
 
 def _filename_stem(name: str | None) -> str:
@@ -96,7 +108,7 @@ async def create_chart(
             {"items": _index_items(store), "error": str(err)},
             status_code=400,
         )
-    chart = _create_chart(store, raw, spec)
+    chart = _create_chart(store, raw, parsed, spec)
     return RedirectResponse(url=f"/chart/{chart.id}", status_code=303)
 
 
@@ -123,7 +135,7 @@ async def create_chart_api(
         validate_spec(spec, parsed)
     except CSVParseError as err:
         raise HTTPException(status_code=400, detail=str(err))
-    chart = _create_chart(store, raw, spec)
+    chart = _create_chart(store, raw, parsed, spec)
     return JSONResponse(
         status_code=201,
         content={
