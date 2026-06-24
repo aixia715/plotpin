@@ -46,11 +46,26 @@ def _log_warning_text(report: LogFilterReport) -> str:
     return ""
 
 
+# 首页缩略图渲染参数:小尺寸 + 低 dpi,内容与全图一致(非 sparkline),
+# 但字节数大幅缩小,降低 VPN/内网小带宽下首页多图的拉取成本。
+_THUMB_SCALE = 0.5
+_THUMB_DPI = 40
+
+
 def render_static(parsed, spec, fmt):
+    return _render(parsed, spec, fmt)
+
+
+def render_thumb(parsed, spec):
+    return _render(parsed, spec, "png", scale=_THUMB_SCALE, dpi=_THUMB_DPI)
+
+
+def _render(parsed, spec, fmt, scale=1.0, dpi=None):
     parsed, _report = apply_log_filter(parsed, spec)
     col_values = dict(zip(parsed.y_labels, parsed.ys))
     n = len(spec.panels)
-    fig, axes = plt.subplots(n, 1, figsize=(8, max(3, 2.6 * n)), sharex=True, squeeze=False)
+    figsize = (8 * scale, max(3, 2.6 * n) * scale)
+    fig, axes = plt.subplots(n, 1, figsize=figsize, sharex=True, squeeze=False)
     axes = [row[0] for row in axes]
     try:
         for idx, panel in enumerate(spec.panels):
@@ -73,7 +88,7 @@ def render_static(parsed, spec, fmt):
         xf = _formatter(spec.x_eng)
         bottom.xaxis.set_major_formatter(FuncFormatter(lambda v, _pos: xf(v)))
         buf = io.BytesIO()
-        fig.savefig(buf, format=fmt, bbox_inches="tight")
+        fig.savefig(buf, format=fmt, bbox_inches="tight", dpi=dpi)
         return buf.getvalue()
     finally:
         plt.close(fig)
