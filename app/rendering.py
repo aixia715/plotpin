@@ -61,6 +61,7 @@ def render_static(parsed, spec, fmt):
                     ax.plot(parsed.x, ys_plot, label=col)
             ax.set_ylabel(panel.y_title)
             ax.legend()
+            ax.grid(True)  # PNG/SVG 静态图带网格，便于读数
             if panel.y_log:
                 ax.set_yscale("log")
             yf = _formatter(panel.y_eng)
