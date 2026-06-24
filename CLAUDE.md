@@ -27,6 +27,9 @@
 
 ## 规则
 
+### 任务开始前同步 master
+每次新开任务前，先确认本地 `master` 分支与远程仓库最新一致：`git fetch` 后检查 `git status` / `git log origin/master`，必要时 `git pull`（或基于最新 `origin/master` 新建分支）。避免基于过时代码开工导致后续合并冲突。
+
 ### 测试（TDD）
 改动遵循 TDD：先写失败测试再实现。纯逻辑层（`eng_notation` / `parsing` / `spec` / `rendering` / `ids`）是测试投入重点，应能脱离 Web 与数据库直接单测。测试在 `tests/`，用 `pytest` 运行。
 
