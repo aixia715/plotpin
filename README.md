@@ -104,7 +104,10 @@ Dockerfile / docker-compose.yml
 | `GET`  | `/chart/<id>` | 交互式图表页 |
 | `GET`  | `/chart/<id>.png` | 静态 PNG（首次访问时渲染并缓存） |
 | `GET`  | `/chart/<id>.svg` | 静态 SVG（首次访问时渲染并缓存） |
+| `POST` | `/api/charts` | 编程式提交 CSV 生成图表，返回 JSON（见下） |
 | `GET`  | `/healthz` | 健康检查 |
+
+供其他应用编程调用的 `POST /api/charts`（multipart 上传 CSV，返回页面 / PNG / SVG / CSV 的绝对 URL）详见 [docs/API.md](docs/API.md)。
 
 ## 许可
 
