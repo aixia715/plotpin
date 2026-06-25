@@ -92,6 +92,10 @@ class Storage:
         返回是否确有该记录被删除；不存在则返回 False。删除后对应的
         页面 / PNG / SVG / CSV 链接都会变成 404（issue 16，已与产品方确认）。
         """
+        # 防御纵深：合法分享 id 仅含 [A-Za-z0-9]（见 ids.new_id）。路由层无鉴权，
+        # 拒绝空串与路径遍历等非法输入，避免 csv_path / glob 逃出数据目录或误删 dotfile。
+        if not (chart_id.isascii() and chart_id.isalnum()):
+            return False
         with self._connect() as conn:
             cur = conn.execute("DELETE FROM charts WHERE id = ?", (chart_id,))
             deleted = cur.rowcount > 0

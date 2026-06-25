@@ -103,6 +103,7 @@ Dockerfile / docker-compose.yml
 |---|---|---|
 | `GET`  | `/` | 首页：上传 + 记录列表 |
 | `POST` | `/charts` | 上传 CSV 并生成图表（重定向到图表页） |
+| `POST` | `/charts/delete` | 批量删除选中记录（彻底删除，重定向回首页） |
 | `GET`  | `/chart/<id>` | 交互式图表页 |
 | `GET`  | `/chart/<id>.png` | 静态 PNG（首次访问时渲染并缓存） |
 | `GET`  | `/chart/<id>.svg` | 静态 SVG（首次访问时渲染并缓存） |

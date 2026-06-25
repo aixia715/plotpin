@@ -78,3 +78,22 @@ def test_delete_only_targets_its_own_files(tmp_path):
     assert store.get_chart("del10") is not None
     assert store.csv_path("del10").exists()
     assert store.cache_path("del10", "png").exists()
+
+
+def test_delete_rejects_non_alnum_id(tmp_path):
+    # 防御纵深：合法 id 仅含 [A-Za-z0-9]（见 ids.new_id）。
+    # 空串 / 路径遍历等非法 id 必须被拒，不得触碰任何文件。
+    store = Storage(tmp_path)
+    store.save_chart("good123", _spec(), b"x,gain\n1k,3.3\n")
+    # cache 目录里的 dotfile：空 id 经 glob(".*") 不得误删
+    (store.cache_dir / ".keep").write_bytes(b"k")
+    # 数据目录外的文件：路径遍历 id 不得删到
+    outside = tmp_path / "secret.csv"  # csv_dir/../secret.csv 指向此处
+    outside.write_bytes(b"secret")
+
+    for bad in ["", "../secret", "../../etc/passwd", "a/b", "中文", "a.b"]:
+        assert store.delete_chart(bad) is False
+
+    assert (store.cache_dir / ".keep").exists()
+    assert outside.exists()
+    assert store.get_chart("good123") is not None
