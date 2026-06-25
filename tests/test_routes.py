@@ -37,6 +37,22 @@ def test_index_empty(client):
     assert client.get("/").status_code == 200
 
 
+def test_index_has_theme_toggle_and_script(client):
+    # issue 30：首页含夜间模式切换按钮、防闪烁内联脚本与 theme.js
+    page = client.get("/").text
+    assert "data-theme-toggle" in page
+    assert "plotpin-theme" in page  # FOUC 防闪烁内联脚本
+    assert "/static/theme.js" in page
+
+
+def test_chart_page_has_theme_toggle(client):
+    # issue 30：图表页同样含切换按钮与 theme.js
+    chart_id = _upload(client, "x,y\n1000,3.3\n2000,6.6\n").headers["location"].rsplit("/", 1)[-1]
+    page = client.get(f"/chart/{chart_id}").text
+    assert "data-theme-toggle" in page
+    assert "/static/theme.js" in page
+
+
 def test_upload_success_redirects(client):
     resp = _upload(client, "x,y\n1000,3.3\n2000,6.6\n")
     assert resp.status_code == 303
