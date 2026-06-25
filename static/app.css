@@ -544,6 +544,125 @@ header {
 }
 .r-meta .id { color: var(--accent-ink); }
 
+/* ── Edit / delete mode (issue 16) ── */
+.log-edit,
+.log-back,
+.log-del {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--accent-ink);
+  padding: 5px 12px;
+  border-radius: 2px;
+}
+.log-edit:hover,
+.log-back:hover {
+  background: var(--paper);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.log-edit:focus-visible,
+.log-back:focus-visible,
+.log-del:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(11, 123, 123, .14);
+}
+.log-actions { display: flex; align-items: center; gap: 8px; }
+.log-actions[hidden] { display: none; }
+.log-del { color: #b00020; border-color: #e6b8bf; }
+.log-del:hover:not(:disabled) { background: #fff0f0; border-color: #b00020; }
+.log-del:disabled { opacity: .4; cursor: not-allowed; }
+.log-del .sel-n { font-weight: 600; }
+
+/* 进入编辑态：行不再跳转，整行变成可点的「选择」目标 */
+.log.editing .row {
+  position: relative;
+  cursor: pointer;
+  user-select: none;
+}
+.log.editing .r-title a { pointer-events: none; color: var(--ink); }
+.log.editing .row:hover { background: rgba(11, 123, 123, .045); }
+.log.editing .row:focus-visible {
+  outline: none;
+  box-shadow: inset 3px 0 0 var(--accent), 0 0 0 2px rgba(11, 123, 123, .28);
+}
+/* 选中＝高亮（不用复选框）：浅青底 + 左缘通道条 + 行尾 ✓ */
+.log.editing .row.selected {
+  background: rgba(11, 123, 123, .085);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+.log.editing .row.selected:hover { background: rgba(11, 123, 123, .11); }
+.log.editing .row.selected::after {
+  content: "✓";
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-family: var(--mono);
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--accent);
+}
+
+/* ── Delete confirm dialog (issue 16) ── */
+.confirm {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(19, 33, 42, .42);
+  z-index: 1100;
+}
+.confirm[hidden] { display: none; }
+.confirm-card {
+  width: 100%;
+  max-width: 380px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  box-shadow: 0 12px 40px rgba(19, 33, 42, .28);
+  padding: 22px 22px 18px;
+  animation: confirm-in .16s ease-out;
+}
+.confirm-eyebrow {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: #b00020;
+  margin-bottom: 10px;
+}
+.confirm-title { font-size: 17px; font-weight: 600; margin: 0 0 8px; }
+.confirm-msg { font-size: 13.5px; color: var(--muted); line-height: 1.5; margin: 0 0 18px; }
+.confirm-foot { display: flex; justify-content: flex-end; gap: 10px; }
+.btn.danger { background: #b00020; border-color: #b00020; color: #fff; }
+.btn.danger:hover { background: #8a0019; border-color: #8a0019; }
+
+@keyframes confirm-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .confirm-card { animation: none; }
+}
+
+/* 夜间模式：危险红与选中高亮在深底上的可读性 */
+[data-theme="dark"] .log-del { color: #FF8A8A; border-color: #5e2a30; }
+[data-theme="dark"] .log-del:hover:not(:disabled) { background: #3a1a1f; border-color: #FF8A8A; }
+[data-theme="dark"] .confirm-eyebrow { color: #FF8A8A; }
+[data-theme="dark"] .btn.danger { background: #c62433; border-color: #c62433; }
+[data-theme="dark"] .btn.danger:hover { background: #a81d2a; border-color: #a81d2a; }
+[data-theme="dark"] .log.editing .row:hover { background: rgba(31, 170, 160, .08); }
+[data-theme="dark"] .log.editing .row.selected { background: rgba(31, 170, 160, .14); }
+[data-theme="dark"] .log.editing .row.selected:hover { background: rgba(31, 170, 160, .18); }
+
 /* ── Chart page ── */
 .topbar {
   display: flex;

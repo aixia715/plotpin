@@ -331,3 +331,41 @@ def test_web_form_explicit_titles_override_auto(client):
     spec = store.get_chart(cid).spec
     assert spec.title == "我的图" and spec.x_title == "频率"
     assert spec.panels[0].y_title == "增益"
+
+
+def _upload_id(client, csv_text="x,y\n1000,3.3\n2000,6.6\n"):
+    return _upload(client, csv_text).headers["location"].rsplit("/", 1)[-1]
+
+
+def test_delete_removes_only_selected(client):
+    id1 = _upload_id(client)
+    id2 = _upload_id(client)
+    resp = client.post("/charts/delete", data={"ids": [id1]}, follow_redirects=False)
+    assert resp.status_code == 303
+    assert resp.headers["location"] == "/"
+    assert client.get(f"/chart/{id1}").status_code == 404
+    assert client.get(f"/chart/{id2}").status_code == 200
+
+
+def test_delete_multiple_at_once(client):
+    id1 = _upload_id(client)
+    id2 = _upload_id(client)
+    resp = client.post("/charts/delete", data={"ids": [id1, id2]}, follow_redirects=False)
+    assert resp.status_code == 303
+    assert client.get(f"/chart/{id1}").status_code == 404
+    assert client.get(f"/chart/{id2}").status_code == 404
+    assert client.get("/").status_code == 200
+
+
+def test_delete_empty_selection_is_noop(client):
+    id1 = _upload_id(client)
+    resp = client.post("/charts/delete", data={}, follow_redirects=False)
+    assert resp.status_code == 303
+    assert client.get(f"/chart/{id1}").status_code == 200
+
+
+def test_delete_unknown_id_is_harmless(client):
+    id1 = _upload_id(client)
+    resp = client.post("/charts/delete", data={"ids": ["nope"]}, follow_redirects=False)
+    assert resp.status_code == 303
+    assert client.get(f"/chart/{id1}").status_code == 200

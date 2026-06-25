@@ -85,3 +85,19 @@ class Storage:
 
     def read_csv(self, chart_id: str) -> bytes:
         return self.csv_path(chart_id).read_bytes()
+
+    def delete_chart(self, chart_id: str) -> bool:
+        """彻底删除一条记录：DB 行 + CSV 源文件 + 全部缓存图。
+
+        返回是否确有该记录被删除；不存在则返回 False。删除后对应的
+        页面 / PNG / SVG / CSV 链接都会变成 404（issue 16，已与产品方确认）。
+        """
+        with self._connect() as conn:
+            cur = conn.execute("DELETE FROM charts WHERE id = ?", (chart_id,))
+            deleted = cur.rowcount > 0
+        self.csv_path(chart_id).unlink(missing_ok=True)
+        # 缓存文件名形如 {id}.thumb.png / {id}.png / {id}.svg，按精确前缀清理；
+        # glob 的 "{id}." 不会误伤前缀相近的 id（del1 不波及 del10）。
+        for f in self.cache_dir.glob(f"{chart_id}.*"):
+            f.unlink(missing_ok=True)
+        return deleted

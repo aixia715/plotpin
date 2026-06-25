@@ -170,6 +170,18 @@ async def create_chart_api(
     )
 
 
+@app.post("/charts/delete")
+def delete_charts(
+    ids: list[str] | None = Form(None),
+    store: Storage = Depends(get_storage),
+):
+    # issue 16：首页批量彻底删除选中记录（DB 行 + CSV + 缓存图，链接随之 404）。
+    # 不做权限校验——局域网自部署、信任内网用户（已与产品方确认）。
+    for chart_id in ids or []:
+        store.delete_chart(chart_id)
+    return RedirectResponse(url="/", status_code=303)
+
+
 @app.get("/chart/{chart_id}.png")
 def chart_png(chart_id: str, store: Storage = Depends(get_storage)):
     return _image(chart_id, "png", "image/png", store, lambda p, s: render_static(p, s, "png"))

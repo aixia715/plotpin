@@ -42,3 +42,39 @@ def test_list_charts_desc(tmp_path):
 def test_persistence_across_instances(tmp_path):
     Storage(tmp_path).save_chart("keep", _spec(), b"x,gain\n1k,3.3\n")
     assert Storage(tmp_path).get_chart("keep") is not None
+
+
+def test_delete_removes_db_row_csv_and_cache(tmp_path):
+    store = Storage(tmp_path)
+    store.save_chart("del1", _spec(), b"x,gain\n1k,3.3\n")
+    # 模拟已落盘的缓存图（缩略图 + 全尺寸 PNG/SVG）
+    store.cache_path("del1", "thumb.png").write_bytes(b"thumb")
+    store.cache_path("del1", "png").write_bytes(b"png")
+    store.cache_path("del1", "svg").write_bytes(b"svg")
+
+    assert store.delete_chart("del1") is True
+
+    assert store.get_chart("del1") is None
+    assert store.exists("del1") is False
+    assert not store.csv_path("del1").exists()
+    assert not store.cache_path("del1", "thumb.png").exists()
+    assert not store.cache_path("del1", "png").exists()
+    assert not store.cache_path("del1", "svg").exists()
+
+
+def test_delete_missing_returns_false(tmp_path):
+    assert Storage(tmp_path).delete_chart("nope") is False
+
+
+def test_delete_only_targets_its_own_files(tmp_path):
+    # 前缀相近的 id 不应被误删（del1 不能波及 del10）
+    store = Storage(tmp_path)
+    store.save_chart("del1", _spec(), b"x,gain\n1k,3.3\n")
+    store.save_chart("del10", _spec(), b"x,gain\n1k,3.3\n")
+    store.cache_path("del10", "png").write_bytes(b"png")
+
+    store.delete_chart("del1")
+
+    assert store.get_chart("del10") is not None
+    assert store.csv_path("del10").exists()
+    assert store.cache_path("del10", "png").exists()
