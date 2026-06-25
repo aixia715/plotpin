@@ -1,6 +1,6 @@
 # PlotPin
 
-局域网自部署的图表分享应用：上传 CSV 生成 Plotly 图表，提供永久不变的页面 / PNG / SVG 链接。
+局域网自部署的图表分享应用：上传 CSV 生成 Plotly 图表，提供稳定不变的页面 / PNG / SVG 链接（记录删除前链接始终有效）。
 
 ## 技术栈
 - 后端：FastAPI + Uvicorn
